@@ -1,0 +1,7 @@
+# CUDA_PROFILE_LOG_VERSION 2.0
+# CUDA_DEVICE 0 GeForce 8800 GT
+# CUDA_PROFILE_CSV 1
+timestamp,method,gputime,cputime,regperthread,occupancy,branch,divergent_branch
+416.247,memcpyHtoD,2280.288,3631.781
+4219.477,_Z16kernel_operationiPf,213.728,262.676,3,0.667,2240,0
+4664.581,memcpyDtoH,2765.600,3367.811
