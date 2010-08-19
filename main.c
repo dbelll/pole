@@ -15,14 +15,30 @@
 
 int main(int argc, const char **argv)
 {
-	read_params(argc, argv);
-	COMMON_VALS *cv = initialize_common_values();
-	transfer_to_device(cv);
-	RESULTS *r = allocate_result_arrays();
-	run_GPU(cv, r);
-	run_CPU(cv, r);
-	free_common_values(cv);
-	free_result_arrays(r);
+	PARAMS p = read_params(argc, argv);
+	AGENT_DATA *agCPU = initialize_agentsCPU();
+	AGENT_DATA *agGPU = (p.run_on_GPU) ? initialize_agentsGPU(agCPU) : NULL;
+	RESULTS *rCPU = NULL;
+	RESULTS *rGPU = NULL;
+	
+	if (p.run_on_CPU){
+		rCPU = initialize_results();
+		run_CPU(agCPU, rCPU);
+		display_results("CPU:", rCPU);
+	}
+	
+	if (p.run_on_GPU) {
+		rGPU = initialize_results();
+		run_GPU(agGPU, rGPU);
+		display_results("GPU:", rGPU);
+	}
+	
+	free_agentsCPU(agCPU);
+	free_agentsGPU(agGPU);
+	
+	free_results(rGPU);
+	free_results(rCPU);
+
 	return 0;
 }
 

@@ -16,31 +16,41 @@ typedef struct {
 	unsigned agents;
 	unsigned num_sharing_intervals;
 	unsigned data_interval;
-	float epsilon;
-	unsigned blocks;			// number of blocks with BLOCK_SIZE agents in each block (except the last block may have less)
+	float epsilon;				// exploration factor
+	float gamma;				// discount factor
+	float lambda;				// eligibility trace decay factor
+	unsigned blocks;			// number of blocks with BLOCK_SIZE agents in each block
 	unsigned run_on_CPU;
 	unsigned run_on_GPU;
 	unsigned no_print;
-	
+	unsigned num_features;
+	unsigned num_actions;
 	unsigned state_size;		// a state is this number of floats.
 } PARAMS;
 
 typedef struct{
-	unsigned *seeds;
-	float *agent_states;
-	float *last_action;
-} COMMON_VALS;
+	unsigned device_flag;	// 1 => these are device pointers, 0 => host pointers
+	unsigned *seeds;	// seeds for random number generator
+	float *theta;		// weights for each of the features
+	float *e;			// eligibility trace
+	float *ep_data;		// state, action, result, state, action values for this action episode
+	float *s;			// current state
+	float *Q;			// Q values for each action
+} AGENT_DATA;		// may hold either host or device pointers
 
 typedef struct{
-	float *results;
+	float *begun;		// cumulative number of episodes begun
+	float *ended;		// cumulative number of episodes ended
+	float *total_length;	// total length for all the ended episodes
 } RESULTS;
 
-void read_params(int argc, const char **argv);
-
-COMMON_VALS *initialize_common_values();
-void free_common_values(COMMON_VALS *cv);
-void transfer_to_device(COMMON_VALS *cv);
-RESULTS *allocate_result_arrays();
-void free_result_arrays(RESULTS *r);
-void run_GPU(COMMON_VALS *cv, RESULTS *r);
-void run_CPU(COMMON_VALS *cv, RESULTS *r);
+PARAMS read_params(int argc, const char **argv);
+AGENT_DATA *initialize_agentsCPU();
+AGENT_DATA *initialize_agentsGPU(AGENT_DATA *agCPU);
+void free_agentsCPU(AGENT_DATA *agCPU);
+void free_agentsGPU(AGENT_DATA *agGPU);
+RESULTS *initialize_results();
+void free_results(RESULTS *r);
+void run_GPU(AGENT_DATA *cv, RESULTS *r);
+void run_CPU(AGENT_DATA *cv, RESULTS *r);
+void display_results(const char *str, RESULTS *r);
