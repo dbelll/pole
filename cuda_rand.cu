@@ -15,7 +15,6 @@
  */
 
 
-
 __device__ __host__ inline unsigned TausStep(unsigned &z, int S1, int S2, int S3, unsigned M)
 {
 	unsigned b = (((z << S1) ^ z) >> S2);
@@ -86,11 +85,3 @@ __device__ __host__ inline float RandNorm(unsigned *z, unsigned stride)
 //	return 0.123f;
 }
 
-//__device__ inline float RandNorm(unsigned *z, unsigned stride)
-//{
-//	float u1 = RandUniform(z, stride);
-//	float u2 = RandUniform(z, stride);
-//    float r = sqrtf(-2.0f * logf(u1));
-//    float phi = 2 * PI * u2;
-//    return r * __cosf(phi);
-//}

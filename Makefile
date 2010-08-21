@@ -60,6 +60,9 @@ EXECUTABLE	:= pole
 # Cuda source files (compiled with cudacc)
 CUFILES		:= pole.cu cuda_utils.cu
 
+# CUDA dependency files
+CU_DEPS		:= pole.h
+
 # C/C++ source files (compiled with gcc / c++)
 CCFILES		:=  main.c
 
@@ -68,7 +71,7 @@ CCFILES		:=  main.c
 
 # compiler flags
 #CUDACCFLAGS = --profile
-CUDACCFLAGS := --ptxas-options=-v #-maxregcount=8 --use_fast_math 
+CUDACCFLAGS := --ptxas-options=-v --use_fast_math #-maxregcount=8 
 ################################################################################
 # Rules and targets
 verbose ?= 1

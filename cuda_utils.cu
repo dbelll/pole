@@ -6,6 +6,11 @@
  *
  */
 
+#include <stdio.h>
+#include <cutil.h>
+#include <cuda_runtime.h>
+#include <cutil_inline.h>
+
 #include "cuda_utils.h"
 
 #pragma mark timer functions

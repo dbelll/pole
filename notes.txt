@@ -1,0 +1,2 @@
+Pass a pointer to the AGENT_DATA and PARAMS to the routines that run on host and device.
+

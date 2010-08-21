@@ -6,17 +6,40 @@
  *
  */
 
+/*
+ *	Utilities for...
+ *		Reading command line parameters
+ *			GET_PARM(<param>, <default_value>)	// get an integer parameter
+ *			GET_PARMF(<param>, <default_value>)	// get a float parameter
+ *			PARAM_PRESENT(<param>)				// check for existance of a parameter
+ *
+ *		
+ *
+ *		Allocating and transferring data to/from device
+ *			device_copyf(<h_data>, <count>)		// copy an array to the device
+ *			device_copyui(<h_data>, <count>)	
+ *												
+ *			device_allocf(<count>)				// allocate device memory for <count> values
+ *			device_allocui(<count>)				
+ *
+ *			host_copyf(<d_data>, <count>)		// allocate host memory and copy from device
+ *			host_copyui(<d_data>, <count>)
+ *
+ *		Timers...
+ *			CREAT_TIMER(&timer)
+ *			START_TIMER(timer)
+ *			STOP_TIMER(timer, "message")
+ *			DELETE_TIMER(timer)
+ */
+
 #ifndef __CUDA_UTILS_H__
 #define __CUDA_UTILS_H__
 
-#include <stdio.h>
-#include <cutil.h>
-#include <cuda_runtime.h>
-#include <cutil_inline.h>
-
-
 // define this symbol to print a message at all device_copyx calls
 //#define TRACE_DEVICE_ALLOCATIONS
+
+static int __iTemp;			// used in GET_PARAM macros
+static float __fTemp;		// used in GET_PARAM macros
 
 // macros to read command line arguments or use a default value
 // This macro assums argc and argv are their normal values found in main()
