@@ -24,6 +24,31 @@ static unsigned g_seeds[4] = {2784565659u, 1491908209u, 3415062841u, 3293636241u
 
 #pragma mark CPU & GPU
 
+// random number in an interval from -max to +max using random normal with standard deviation = sd
+__host__ __device__ float random_interval(unsigned *seeds, unsigned stride, float max, float sd)
+{
+	float r;
+	// keep generating values until one is within -max to +max
+	do {
+		r = RandNorm(seeds, stride) / (sd * max);
+	} while (r < -max || r > max);
+	return r;
+}
+
+__host__ __device__ void randomize_state(float *s, unsigned *seeds, unsigned stride)
+{
+	s[0] = random_interval(seeds, stride, ANGLE_MAX, STATE_SD);
+	s[stride] = random_interval(seeds, stride, ANGLE_VEL_MAX, STATE_SD);
+	s[2*stride] = random_interval(seeds, stride, X_MAX, STATE_SD);
+	s[3*stride] = random_interval(seeds, stride, X_VEL_MAX, STATE_SD);
+}
+
+__device__ __host__ unsigned terminal_state(float *s, unsigned stride)
+{
+	return s[2*stride] < X_MIN || s[2*stride] > X_MAX || 
+			s[0] < ANGLE_MIN || s[0] > ANGLE_MAX;
+}
+
 // take an action from the current state, s, returning the reward and saving the new state in s_prime
 __device__ __host__ float take_action(unsigned a, float *s, float *s_prime, unsigned stride)
 {
@@ -33,7 +58,7 @@ __device__ __host__ float take_action(unsigned a, float *s, float *s_prime, unsi
 	float F = a ? FORCE : -FORCE;
 
 	float ang = s[0];
-	float ang_vel = s[1];
+	float ang_vel = s[stride];
 	float cos_a = cos(ang);
 	float sin_a = sin(ang);
 	
@@ -43,8 +68,8 @@ __device__ __host__ float take_action(unsigned a, float *s, float *s_prime, unsi
 							(CART_MASS + POLE_MASS);
 	ang_accel /= POLE_LENGTH * (4.0f/3.0f - POLE_MASS * cos_a * cos_a / (CART_MASS + POLE_MASS));
 	
-	float x = s[2];
-	float x_vel = s[3];
+	float x = s[2*stride];
+	float x_vel = s[3*stride];
 
 	// calculate x acceleration
 	float x_accel = F + POLE_MASS * POLE_LENGTH * (ang_vel * ang_vel * sin_a - ang_accel * cos_a);
@@ -52,27 +77,68 @@ __device__ __host__ float take_action(unsigned a, float *s, float *s_prime, unsi
 	
 	// update ang, ang_vel and x, x_vel
 	s_prime[0] = ang + TAU * ang_vel;
-	s_prime[1] = ang_vel + TAU * ang_accel;
-	s_prime[2] = x + TAU * x_vel;
-	s_prime[3] = x_vel + TAU * x_accel;
+	s_prime[stride] = ang_vel + TAU * ang_accel;
+	s_prime[2*stride] = x + TAU * x_vel;
+	s_prime[3*stride] = x_vel + TAU * x_accel;
 	
 	// determine the reward
-	float reward = REWARD_NON_FAIL;
-	if (s_prime[2] < X_MIN || s_prime[2] > X_MAX || 
-		s_prime[0] < ANGLE_MIN || s_prime[0] > ANGLE_MAX) 
-	{
-		reward = REWARD_FAIL;
-	}
+	float reward = terminal_state(s_prime, stride) ? REWARD_FAIL : REWARD_NON_FAIL;
 	
 	return reward;
 }
 
+//float take_action_debug(unsigned a, float *s, float *s_prime, unsigned stride)
+//{
+//	// formulas are from: Brownlee. The pole balancing problem: a benchmark control theory problem. hdl.handle.net (2005)
+//	// determine force from the action
+//	float F = a ? FORCE : -FORCE;
+//
+//	float ang = s[0];
+//	float ang_vel = s[stride];
+//	float x = s[2*stride];
+//	float x_vel = s[3*stride];
+//
+//	float cos_a = cos_a(ang);
+//	float sin_a = sin_a(ang);
+//	
+//	printf("[tack_action_debug] action=%d, angle=%7.4f, angle_vel=%7.4f\n", a, 
+//
+//	// calculate angular acceleration
+//	float ang_accel = GRAV * sin_a;
+//	ang_accel += cos_a * (-F - POLE_MASS * POLE_LENGTH * ang_vel * ang_vel * sin_a) / 
+//							(CART_MASS + POLE_MASS);
+//	ang_accel /= POLE_LENGTH * (4.0f/3.0f - POLE_MASS * cos_a * cos_a / (CART_MASS + POLE_MASS));
+//	
+//	// calculate x acceleration
+//	float x_accel = F + POLE_MASS * POLE_LENGTH * (ang_vel * ang_vel * sin_a - ang_accel * cos_a);
+//	x_accel /= (CART_MASS + POLE_MASS);
+//	
+//	// update ang, ang_vel and x, x_vel
+//	s_prime[0] = ang + TAU * ang_vel;
+//	s_prime[1] = ang_vel + TAU * ang_accel;
+//	s_prime[2] = x + TAU * x_vel;
+//	s_prime[3] = x_vel + TAU * x_accel;
+//	
+//	// determine the reward
+//	float reward = REWARD_NON_FAIL;
+//	if (s_prime[2] < X_MIN || s_prime[2] > X_MAX || 
+//		s_prime[0] < ANGLE_MIN || s_prime[0] > ANGLE_MAX) 
+//	{
+//		reward = REWARD_FAIL;
+//	}
+//	
+//	return reward;
+//}
+
+// Calculate which feature division the state value falls into, based on the min, max,
+// and number of divisions.
 __device__ __host__ unsigned feature_val_for_state_val(float s, float minv, float maxv, 
 														unsigned div)
 {
 	return max(0, min(div-1, (unsigned)((s-minv)/(maxv-minv) * (float)div)));
 }
 
+// Determine which feature corresponds to the given state
 __device__ __host__ unsigned feature_for_state(float *s, unsigned stride)
 {
 	unsigned feature = feature_val_for_state_val(s[0], ANGLE_MIN, ANGLE_MAX, ANGLE_DIV);
@@ -86,7 +152,8 @@ __device__ __host__ unsigned feature_for_state(float *s, unsigned stride)
 }
 
 // calculate the Q value for an action from a state
-__device__ __host__ float calc_Q(float *s, unsigned a, float *theta, unsigned stride, unsigned num_actions)
+__device__ __host__ float calc_Q(float *s, unsigned a, float *theta, unsigned stride, 
+																			unsigned num_actions)
 {
 	// only one feature corresponds with any given state
 	unsigned feature = feature_for_state(s, stride);
@@ -94,8 +161,16 @@ __device__ __host__ float calc_Q(float *s, unsigned a, float *theta, unsigned st
 	return Q;
 }
 
-// determine the best action for the current state, using weights in theta, storing the estimated
-// Q value for that action in bestQ
+__device__ __host__ void update_stored_Q(float *Q, float *s, float *theta, unsigned stride, 
+																			unsigned num_actions)
+{
+	for (int a = 0; a < num_actions; a++) {
+		Q[a * stride] = calc_Q(s, a, theta, stride, num_actions);
+	}
+}
+
+// Calculate the Q value for each action from the given state, storing the values in Q
+// Return the action with the highest Q value
 __device__ __host__ unsigned best_action(float *s, float *theta, float *Q, unsigned stride,
 										 unsigned num_actions)
 {
@@ -114,6 +189,7 @@ __device__ __host__ unsigned best_action(float *s, float *theta, float *Q, unsig
 	return best_action;
 }
 
+// choose action from current state, storing Q values for each possible action in Q
 __device__ __host__ unsigned choose_action(float *s, float *theta, float epsilon, unsigned stride, 
 											float *Q, unsigned num_actions, unsigned *seeds)
 {
@@ -127,23 +203,29 @@ __device__ __host__ unsigned choose_action(float *s, float *theta, float epsilon
 	return a;
 }
 
-// update eligibility traces based on taking action in state s
+// Update eligibility traces based on action and state
 __device__ __host__ void update_trace(unsigned action, float *s, float *e, unsigned num_features,
 										unsigned num_actions, unsigned stride, float gamma, float lambda)
 {
 	unsigned feature = feature_for_state(s, stride);
 	for (int f = 0; f < num_features; f++) {
 		for (int a = 0; a < num_actions; a++) {
-			unsigned index = (f + a * num_features) * stride;
+			unsigned index = (a + f * num_actions) * stride;
+			// Replacing trace with optional block
 			if (f == feature) {
+				// set to 1.0 for action selected from current state,
+				// set to 0.0 for actions not taken from current state
 				e[index] = (a == action) ? 1.0f : 0.0f;
 			}else {
+				// decay all other values
 				e[index] *= gamma * lambda;
 			}
 		}
 	}
 }
 
+// Update theta values for one agent
+// theta = theta + alpha * delta * eligibility trace
 __device__ __host__ void update_thetas(float *theta, float *e, float alpha, float delta, unsigned num_features, unsigned stride, unsigned num_actions)
 {
 	for (int fa = 0; fa < num_features * num_actions; fa++) {
@@ -162,24 +244,24 @@ void dump_agent(AGENT_DATA *ag, unsigned agent)
 	printf("   seeds = %u, %u, %u, %u\n", ag->seeds[agent], ag->seeds[agent + _p.agents], 
 									   ag->seeds[agent + 2*_p.agents], ag->seeds[agent + 3*_p.agents]);
 #ifdef AGENT_DUMP_INCLUDE_THETA_E
-	printf("FEATURE  ACTION   THETA     E  \n");
+	printf("FEATURE  ACTION    THETA       E  \n");
 	for (int f = 0; f < _p.num_features; f++) {
 		for (int action = 0; action < _p.num_actions; action++) {
-			printf("%7d %7d %7.3f %7.3f\n", f, action, 
+			printf("%7d %7d %9.6f %9.6f\n", f, action, 
 				   ag->theta[agent + (action + f * _p.num_actions) * _p.agents], 
 				   ag->e[agent + (action + f * _p.num_actions) * _p.agents]);
 		}
 	}
 #endif
-	printf("  angle  angleV     x       xV      Q0      Q1 feature\n");
-	printf("%7.3f %7.3f %7.3f %7.3f %7.3f %7.3f %7d\n", ag->s[agent], ag->s[agent + _p.agents], ag->s[agent + 2*_p.agents], ag->s[agent + 3*_p.agents], ag->Q[agent], ag->Q[agent + _p.agents],
+	printf("   angle    angleV       x         xV        Q0        Q1   feature\n");
+	printf("%9.6f %9.6f %9.6f %9.6f %9.6f %9.6f %7d\n", ag->s[agent], ag->s[agent + _p.agents], ag->s[agent + 2*_p.agents], ag->s[agent + 3*_p.agents], ag->Q[agent], ag->Q[agent + _p.agents],
 		feature_for_state(ag->s + agent, _p.agents));
 	
 	printf("ACTION  Q-value\n");
 //		printf("number of actions is %d\n", p.num_actions);
 	for (int action = 0; action < _p.num_actions; action++) {
 		(action == ag->action[agent]) ? printf("-->") : printf("   ");
-		printf("%3d  %7.3f\n", action, ag->Q[agent + action * _p.agents]);
+		printf("%3d  %9.6f\n", action, ag->Q[agent + action * _p.agents]);
 	}
 	printf("\n");
 }
@@ -231,26 +313,16 @@ float *create_e(unsigned num_agents, unsigned num_features, unsigned num_actions
 	return e;
 }
 
-// random number in an interval from -max to +max using random normal with standard deviation = sd
-float random_interval(unsigned *seeds, unsigned stride, float max, float sd)
-{
-	float r;
-	// keep generating values until one is within -max to +max
-	do {
-		r = RandNorm(seeds, stride) / (sd * max);
-	} while (r < -max || r > max);
-	return r;
-}
-
 // initial random states
 float *create_states(unsigned num_agents, unsigned *seeds)
 {
 	float *states = (float *)malloc(num_agents * NUM_STATE_VALUES * sizeof(float));
 	for (int i = 0; i < num_agents; i++) {
-		states[i] = random_interval(seeds + i, num_agents, ANGLE_MAX, STATE_SD);
-		states[i + num_agents] = random_interval(seeds+i, num_agents, ANGLE_VEL_MAX, STATE_SD);
-		states[i + 2 * num_agents] = random_interval(seeds+i, num_agents, X_MAX, STATE_SD);
-		states[i + 3 * num_agents] = random_interval(seeds+i, num_agents, X_VEL_MAX, STATE_SD);
+//		states[i] = random_interval(seeds + i, num_agents, ANGLE_MAX, STATE_SD);
+//		states[i + num_agents] = random_interval(seeds+i, num_agents, ANGLE_VEL_MAX, STATE_SD);
+//		states[i + 2 * num_agents] = random_interval(seeds+i, num_agents, X_MAX, STATE_SD);
+//		states[i + 3 * num_agents] = random_interval(seeds+i, num_agents, X_VEL_MAX, STATE_SD);
+		randomize_state(states + i, seeds + i, num_agents);
 	}
 	return states;
 }
@@ -318,69 +390,161 @@ AGENT_DATA *initialize_agentsCPU()
 	return ag;
 }
 
+void dump_state(float *s, unsigned stride)
+{
+	printf("(%9.6f,%9.6f,%9.6f,%9.6f)[%d]\n", s[0], s[stride], s[2*stride], s[3*stride], 
+															feature_for_state(s, stride));
+}
+
 void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 {
+	unsigned tot_fails = 0;
+#ifdef DUMP_INTERMEDIATE_FAIL_COUNTS
+	unsigned prev_tot_fails = 0;
+#endif
 #ifdef VERBOSE
 	printf(" no sharing\n");
 #endif
 
 	// on entry the agent's theta, eligibility trace, and state values have been initialized
 	
+#ifdef DUMP_AGENT_ACTIONS
+		printf("-----------------------------------------------------------\n");
+		printf("---------------------- INITIAL SETUP ----------------------\n");
+		printf("-----------------------------------------------------------\n");
+#endif
 	// set-up agents to begin the loop by choosing the first action and updating traces
 	for (int agent = 0; agent < _p.agents; agent++) {
 		ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon, _p.agents,
 										ag->Q + agent, _p.num_actions, ag->seeds + agent);
 
 #ifdef DUMP_AGENT_ACTIONS
-		printf("agent %d choose action %d from state (%6.3f,%6.3f,%6.3f,%6.3f)\n", agent, 
-					ag->action[agent], ag->s[agent], ag->s[agent + _p.agents], 
-					ag->s[agent + 2*_p.agents], ag->s[agent + 3*_p.agents]);
+		printf("agent %d will choose action %d from state ", agent, ag->action[agent]);
+		dump_state(ag->s + agent, _p.agents);
 #endif
 
-		update_trace(ag->action[agent], ag->s, ag->e, _p.num_features, _p.num_actions, _p.agents, _p.gamma, _p.lambda);		
+		update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
+												_p.num_actions, _p.agents, _p.gamma, _p.lambda);		
 	}
-	
-	// main loop, repeat for the number of trials
-	for (int t = 0; t < _p.trials; t++) {
-		for (int agent = 0; agent < _p.agents; agent++) {
 
 #ifdef DUMP_AGENT_ACTIONS
+	printf("----------------------------------------------------\n");
+	printf("-------------- BEGIN MAIN LOOP ---------------------\n");
+	printf("----------------------------------------------------\n");
+#endif	
+
+	// main loop, repeat for the number of trials
+	for (int t = 0; t < _p.time_steps; t++) {
+
+#ifdef DUMP_AGENT_ACTIONS
+	printf("\n------------------ TIME STEP%3d ------------------------\n", t);
+#endif	
+
+		for (int agent = 0; agent < _p.agents; agent++) {
+
+			// stored state is s      stored Q's are Q(s)
+			
+#ifdef DUMP_AGENT_ACTIONS
+			printf("<<<<<<<< AGENT %d >>>>>>>>>>>>\n", agent);
 			printf("time step %d, agent %d ready for next action\n", t, agent);
+			printf("(action already determined and stored in agent)\n");
 			dump_agent(ag, agent);
+			printf("Q values above are for state s = %d\n", feature_for_state(ag->s + agent, 
+																					_p.agents));
 #endif
 			// take the action already chosen and saved in ag->action
 			float reward = take_action(ag->action[agent], ag->s + agent, ag->s + agent, _p.agents);
-			float Q = ag->Q[agent + ag->action[agent] * _p.agents];
+
+#ifdef DUMP_AGENT_BRIEF
+			(agent == 0) ? printf("[step%4d]", t) : printf("          ");
+			printf("[agent%3d] action:%2d reward:%6.3f from state ", agent, ag->action[agent], reward);
+			dump_state(ag->s + agent, _p.agents);
+#endif
+			
+			// stored state is s_prime      stored Q's are Q(s)
+			unsigned fail = terminal_state(ag->s + agent, _p.agents);
+			if (fail){
+#ifdef DUMP_FAILURE_TIMES
+				printf("Agent%4d Failure at %d\n", agent, t);
+#endif
+#ifdef DUMP_AGENT_STATE_ON_FAILURE
+				dump_agent(ag, agent);
+#endif
+				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+				++tot_fails;
+			}
+						
+
+			float Q_a = ag->Q[agent + ag->action[agent] * _p.agents];
+
+#ifdef DUMP_AGENT_ACTIONS
+			if (fail) printf("!!!! terminal state reached, next state is random\n");
+			printf("agent %d, took action %d, now in state s_prime = " , agent,	ag->action[agent]);
+			dump_state(ag->s + agent, _p.agents);
+#endif
 
 #ifdef DUMP_CALCULATIONS
-			printf("reward is %7.3f, Q[%d] is %7.3f\n", reward, ag->action[agent], Q);
+			printf("reward is %9.6f, Q[%d] for state s is %9.6f\n", reward, ag->action[agent], Q_a);
 #endif
 
 //			ag->prev_action[agent] = ag->action[agent];
 //			ag->f_prev_state[agent] = feature_for_state(ag->s + agent, _p.agents);
 			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon,
 								_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
+			
+			// Stored Q values are now based on the new state, s_prime
 
 #ifdef DUMP_AGENT_ACTIONS
-			printf("agent %d choose action %d from state (%6.3f,%6.3f,%6.3f,%6.3f)\n", agent, 
-						ag->action[agent], ag->s[agent], ag->s[agent + _p.agents], 
-						ag->s[agent + 2*_p.agents], ag->s[agent + 3*_p.agents]);
+			printf("agent %d's next action will be %d from state ", agent, ag->action[agent]);
+			dump_state(ag->s + agent, _p.agents);
 #endif
 
-			update_trace(ag->action[agent], ag->s, ag->e, _p.num_features, _p.num_actions, _p.agents, _p.gamma, _p.lambda);
-			
-			float newQ = ag->Q[agent + ag->action[agent] * _p.agents];
-			float delta = (reward + _p.gamma * newQ) - Q;
+			float Q_a_prime = ag->Q[agent + ag->action[agent] * _p.agents];
+			float delta = reward - Q_a + _p.gamma * Q_a_prime;
 
 #ifdef DUMP_CALCULATIONS
-			printf("discount is %7.3f, newQ[%d] is %7.3f, so delta is %7.3f\n", _p.gamma, 
-																ag->action[agent], newQ, delta);
+			printf("discount is %9.6f, newQ[%d] is %9.6f, so delta is %9.6f\n", _p.gamma, 
+																ag->action[agent], Q_a_prime, delta);
 #endif
+
+#ifdef DUMP_AGENT_ACTIONS
+			printf("[update_theta]:\n");
+#endif
+
 			update_thetas(ag->theta + agent, ag->e + agent, _p.alpha, delta, _p.num_features,
 																	 _p.agents, _p.num_actions);
-		}
-	}
+			update_stored_Q(ag->Q + agent, ag->s + agent, ag->theta + agent, _p.agents, 
+																				_p.num_actions);
+			
+#ifdef DUMP_AGENT_ACTIONS
+			printf("[update_trace]\n");
+#endif
 
+			update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, _p.num_actions, _p.agents, _p.gamma, _p.lambda);
+			
+#ifdef DUMP_AGENT_ACTIONS
+			printf("agent state after updating theta and eligibility trace:\n");
+			dump_agent(ag, agent);
+#endif
+		}
+
+#ifdef DUMP_INTERMEDIATE_FAIL_COUNTS
+		if (0 == (1+t) % DUMP_INTERMEDIATE_FAIL_COUNTS) {
+			printf("intermediate fail count =%7d\n", tot_fails - prev_tot_fails);
+			prev_tot_fails = tot_fails;
+		}
+#endif
+
+
+	}
+#ifdef DUMP_TERMINAL_AGENT_STATE
+	printf("\n==================================================\n");
+	printf(  "               ENDING AGENT STATES");
+	for (int agent = 0; agent < _p.agents; agent++) {
+		dump_agent(ag, agent);
+	}
+#endif		
+	printf("total failures = %d\n", tot_fails);
 }
 
 void run_CPU_share(AGENT_DATA *cv, RESULTS *r)
