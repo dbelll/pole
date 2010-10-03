@@ -1,2 +1,5 @@
 Pass a pointer to the AGENT_DATA and PARAMS to the routines that run on host and device.
 
+After a failure, the eligibility traces should be reset to 0.0f's
+
+Check that the correct state/action is being hit with the largest delta when there is a failure.

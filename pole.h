@@ -22,22 +22,22 @@
 // see Brownlee. The pole balancing problem: a benchmark control theory problem. hdl.handle.net (2005)
 #define ANGLE_MAX .209f
 #define ANGLE_MIN (-ANGLE_MAX)
-#define ANGLE_DIV 3
+#define ANGLE_DIV 5
 
 #define ANGLE_VEL_MAX .05f
 #define ANGLE_VEL_MIN (-ANGLE_VEL_MAX)
-#define ANGLE_VEL_DIV 3
+#define ANGLE_VEL_DIV 5
 
 #define X_MAX 2.400f
 #define X_MIN (-X_MAX)
-#define X_DIV 3
+#define X_DIV 5
 
 #define X_VEL_MAX .5f
 #define X_VEL_MIN (-X_VEL_MAX)
-#define X_VEL_DIV 3
+#define X_VEL_DIV 5
 
-// standard deviation of intial state values (limited to within MIN and MAX values)
-#define STATE_SD 10.0f
+// number of standard deviations equal to the maximum value for determining initial state values
+#define SD_FOR_MAX 2.0f
 
 #define NUM_FEATURES (ANGLE_DIV * ANGLE_VEL_DIV * X_DIV *X_VEL_DIV)
 #define NUM_STATE_VALUES 4

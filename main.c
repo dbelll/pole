@@ -85,8 +85,9 @@ PARAMS read_params(int argc, const char **argv)
 	p.num_actions = NUM_ACTIONS;
 	p.num_features = NUM_FEATURES;
 	
-	printf("[POLE][TRIALS%7d][TIME_STEPS%7d][SHARING_INTERVAL%7d][AGENT_GROUP_SIZE%7d]""[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][DATA_LINES%7d][STATE_SIZE%7d]\n", 
-		   p.trials, p.time_steps, p.sharing_interval, p.agent_group_size, p.epsilon, 
+	printf("[POLE][TRIALS%7d][TIME_STEPS%7d][SHARING_INTERVAL%7d][AGENT_GROUP_SIZE%7d][ALPHA%7.4f]"
+		   "[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][DATA_LINES%7d][STATE_SIZE%7d]\n", 
+		   p.trials, p.time_steps, p.sharing_interval, p.agent_group_size, p.alpha, p.epsilon, 
 		   p.gamma, p.lambda, p.data_lines, p.state_size);
 #ifdef VERBOSE
 	printf("num_agents = %d, num_features = %d\n", p.agents, p.num_features);
