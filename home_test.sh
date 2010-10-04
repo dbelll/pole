@@ -5,17 +5,18 @@ _runCPU="--RUN_ON_CPU=1 --RUN_ON_GPU=0"
 _print="--NO_PRINT"
 _location="./bin/darwin/release"
 
-_time="--TIME_STEPS=500000"
+_time="--TIME_STEPS=100000"
 _groups="--AGENT_GROUP_SIZE=1"
 _interval="--SHARING_INTERVAL=4"
 _test="--TEST_INTERVAL=10000 --TEST_REPS=10000"
+#_test=""
 
 _a="--ALPHA"
 #_e="--EPSILON"
 _g="--GAMMA"
 _l="--LAMBDA"
 
-for _epsilon in "--EPSILON=.02" "--EPSILON=.04" "--EPSILON=.08"
+for _epsilon in "--EPSILON=.02" #"--EPSILON=.04" "--EPSILON=.08"
 do
 
 

@@ -18,23 +18,25 @@
 #define RAND_WGT_MIN -1.0f
 #define RAND_WGT_MAX 1.0f
 
+#define DIVS 5
+
 // parameters of the problem and tiling of state space
 // see Brownlee. The pole balancing problem: a benchmark control theory problem. hdl.handle.net (2005)
 #define ANGLE_MAX .209f
 #define ANGLE_MIN (-ANGLE_MAX)
-#define ANGLE_DIV 5
+#define ANGLE_DIV DIVS
 
 #define ANGLE_VEL_MAX .05f
 #define ANGLE_VEL_MIN (-ANGLE_VEL_MAX)
-#define ANGLE_VEL_DIV 5
+#define ANGLE_VEL_DIV DIVS
 
 #define X_MAX 2.400f
 #define X_MIN (-X_MAX)
-#define X_DIV 5
+#define X_DIV DIVS
 
 #define X_VEL_MAX .5f
 #define X_VEL_MIN (-X_VEL_MAX)
-#define X_VEL_DIV 5
+#define X_VEL_DIV DIVS
 
 // number of standard deviations equal to the maximum value for determining initial state values
 #define SD_FOR_MAX 2.0f

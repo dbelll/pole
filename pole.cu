@@ -451,12 +451,26 @@ float run_test(AGENT_DATA *ag)
 	
 	// initialize all agent states
 	for (int agent = 0; agent < _p.agents; agent++) {
+//		printf("agent %d before testing...\n", agent);
+//		dump_agent(ag, agent);
+		
+		// save agent state
+		float s0 = ag->s[agent];
+		float s1 = ag->s[agent + _p.agents];
+		float s2 = ag->s[agent + 2*_p.agents];
+		float s3 = ag->s[agent + 3*_p.agents];
+		unsigned act = ag->action[agent];
+		unsigned seed0 = ag->seeds[agent];
+		unsigned seed1 = ag->seeds[agent + _p.agents];
+		unsigned seed2 = ag->seeds[agent + 2 * _p.agents];
+		unsigned seed3 = ag->seeds[agent + 3 * _p.agents];
+		float Q0 = ag->Q[agent];
+		float Q1 = ag->Q[agent + _p.agents];
+		
 		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
-	}
 
-	// run the test for specified number of reps
-	for (int t = 0; t < _p.test_reps; t++) {
-		for (int agent = 0; agent < _p.agents; agent++) {
+		// run the test for specified number of reps
+		for (int t = 0; t < _p.test_reps; t++) {
 			take_action(ag->action[agent], ag->s+agent, ag->s+agent, _p.agents);
 			if (terminal_state(ag->s + agent, _p.agents)){
 				++num_failures;
@@ -466,7 +480,26 @@ float run_test(AGENT_DATA *ag)
 			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, 0.0f, 
 									_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
 		}
+		
+		// restore agent state
+		ag->s[agent] = s0;
+		ag->s[agent + _p.agents] = s1;
+		ag->s[agent + 2*_p.agents] = s2;
+		ag->s[agent + 3*_p.agents] = s3;
+		act = ag->action[agent] = act;
+		ag->seeds[agent] = seed0;
+		ag->seeds[agent + _p.agents] = seed1;
+		ag->seeds[agent + 2 * _p.agents] = seed2;
+		ag->seeds[agent + 3 * _p.agents] = seed3;
+		ag->Q[agent] = Q0;
+		ag->Q[agent + _p.agents] = Q1;
+		
+//		printf("after testing...\n");
+//		dump_agent(ag, agent);
 	}
+
+
+
 	return num_failures / (float)_p.agents;
 }
 
@@ -487,11 +520,11 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 		printf("---------------------- INITIAL SETUP ----------------------\n");
 		printf("-----------------------------------------------------------\n");
 #endif
-	float orig_a = ag->s[0];
-	float orig_aV = ag->s[_p.agents];
-	float orig_x = ag->s[2*_p.agents];
-	float orig_xV = ag->s[3*_p.agents];
-	printf("orig state: %6.2f %6.2f %6.2f %6.2f\n", orig_a, orig_aV, orig_x, orig_xV);
+//	float orig_a = ag->s[0];
+//	float orig_aV = ag->s[_p.agents];
+//	float orig_x = ag->s[2*_p.agents];
+//	float orig_xV = ag->s[3*_p.agents];
+//	printf("orig state: %6.2f %6.2f %6.2f %6.2f\n", orig_a, orig_aV, orig_x, orig_xV);
 
 	// set-up agents to begin the loop by choosing the first action and updating traces
 	for (int agent = 0; agent < _p.agents; agent++) {
@@ -555,12 +588,12 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 				dump_agent(ag, agent);
 #endif
 				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
-				if (agent == 0){
-					orig_a = ag->s[0];
-					orig_aV = ag->s[_p.agents];
-					orig_x = ag->s[2*_p.agents];
-					orig_xV = ag->s[3*_p.agents];
-				}
+//				if (agent == 0){
+//					orig_a = ag->s[0];
+//					orig_aV = ag->s[_p.agents];
+//					orig_x = ag->s[2*_p.agents];
+//					orig_xV = ag->s[3*_p.agents];
+//				}
 				++tot_fails;
 			}
 						
