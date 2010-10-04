@@ -85,10 +85,14 @@ PARAMS read_params(int argc, const char **argv)
 	p.num_actions = NUM_ACTIONS;
 	p.num_features = NUM_FEATURES;
 	
+	p.test_interval = GET_PARAM("TEST_INTERVAL", p.time_steps);
+	p.test_reps = GET_PARAM("TEST_REPS", 10000);
+	
 	printf("[POLE][TRIALS%7d][TIME_STEPS%7d][SHARING_INTERVAL%7d][AGENT_GROUP_SIZE%7d][ALPHA%7.4f]"
-		   "[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][DATA_LINES%7d][STATE_SIZE%7d]\n", 
+		   "[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][DATA_LINES%7d][STATE_SIZE%7d][TEST_INTERVAL%7d]"
+		   "[TEST_REPS%7d]\n", 
 		   p.trials, p.time_steps, p.sharing_interval, p.agent_group_size, p.alpha, p.epsilon, 
-		   p.gamma, p.lambda, p.data_lines, p.state_size);
+		   p.gamma, p.lambda, p.data_lines, p.state_size, p.test_interval, p.test_reps);
 #ifdef VERBOSE
 	printf("num_agents = %d, num_features = %d\n", p.agents, p.num_features);
 #endif

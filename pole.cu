@@ -35,7 +35,7 @@ __host__ __device__ float random_interval(unsigned *seeds, unsigned stride, floa
 	return r;
 }
 
-// randomize the state and reset eligibility traces to 0.0f
+// randomize the state
 __host__ __device__ void randomize_state(float *s, unsigned *seeds, unsigned stride)
 {
 	s[0] = random_interval(seeds, stride, ANGLE_MAX, ANGLE_MAX / SD_FOR_MAX);
@@ -44,6 +44,7 @@ __host__ __device__ void randomize_state(float *s, unsigned *seeds, unsigned str
 	s[3*stride] = random_interval(seeds, stride, X_VEL_MAX, X_VEL_MAX / SD_FOR_MAX);
 }
 
+// reset eligibility traces to 0.0f
 __host__ __device__ void reset_trace(float *e, unsigned num_features, unsigned num_actions, 
 										unsigned stride)
 {
@@ -443,6 +444,32 @@ void dump_state(float *s, unsigned stride)
 															feature_for_state(s, stride));
 }
 
+// run tests for all agents and return the average failures
+float run_test(AGENT_DATA *ag)
+{
+	unsigned num_failures = 0;
+	
+	// initialize all agent states
+	for (int agent = 0; agent < _p.agents; agent++) {
+		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+	}
+
+	// run the test for specified number of reps
+	for (int t = 0; t < _p.test_reps; t++) {
+		for (int agent = 0; agent < _p.agents; agent++) {
+			take_action(ag->action[agent], ag->s+agent, ag->s+agent, _p.agents);
+			if (terminal_state(ag->s + agent, _p.agents)){
+				++num_failures;
+				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+			}
+			// choose action with epsilon = 0.0
+			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, 0.0f, 
+									_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
+		}
+	}
+	return num_failures / (float)_p.agents;
+}
+
 void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 {
 	unsigned tot_fails = 0;
@@ -488,6 +515,10 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 
 	// main loop, repeat for the number of trials
 	for (int t = 0; t < _p.time_steps; t++) {
+	
+		if (0 == (t % _p.test_interval) && (t > 0)) {
+			printf("*********[%3d] test results =%7.2f\n", t / _p.test_interval, run_test(ag));
+		}
 
 #ifdef DUMP_AGENT_ACTIONS
 	printf("\n------------------ TIME STEP%3d ------------------------\n", t);
@@ -500,10 +531,7 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 #ifdef DUMP_AGENT_ACTIONS
 			printf("<<<<<<<< AGENT %d >>>>>>>>>>>>\n", agent);
 			printf("time step %d, agent %d ready for next action\n", t, agent);
-//			printf("(action already determined and stored in agent)\n");
 			dump_agent(ag, agent);
-//			printf("Q values above are for state s = %d\n", feature_for_state(ag->s + agent, 
-//																					_p.agents));
 #endif
 			// take the action already chosen and saved in ag->action
 			unsigned prev_feature = feature_for_state(ag->s, _p.agents);
@@ -594,13 +622,16 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 
 #ifdef DUMP_INTERMEDIATE_FAIL_COUNTS
 		if (0 == (1+t) % DUMP_INTERMEDIATE_FAIL_COUNTS) {
-			printf("intermediate fail count =%7d\n", tot_fails - prev_tot_fails);
+			printf("intermediate fail count =%7.2f\n", (tot_fails - prev_tot_fails)/(float)_p.trials);
 			prev_tot_fails = tot_fails;
 		}
 #endif
 
 
 	}
+	
+	printf("*********[%3d] test results =%7.2f\n", _p.time_steps / _p.test_interval, run_test(ag));
+
 #ifdef DUMP_TERMINAL_AGENT_STATE
 	printf("\n==================================================\n");
 	printf(  "               ENDING AGENT STATES");

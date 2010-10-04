@@ -1,5 +1,7 @@
 Pass a pointer to the AGENT_DATA and PARAMS to the routines that run on host and device.
 
-After a failure, the eligibility traces should be reset to 0.0f's
+Add a test function that will run the agent with learning turned off and epsilon = 0.0.  Just use
+the stored thetas to calculate Q values for state/actions and choose optimal action each step.
+	test(repitions, thetas, stride), returns the number of failures.
 
-Check that the correct state/action is being hit with the largest delta when there is a failure.
+When doing the test, randomize state and reset eligibility traces when done.

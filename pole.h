@@ -84,6 +84,8 @@ typedef struct {
 	unsigned num_features;
 	unsigned num_actions;
 	unsigned state_size;		// a state is this number of floats.
+	unsigned test_interval;		// number of time steps between testing
+	unsigned test_reps;			// number of reps in each test
 } PARAMS;
 
 typedef struct{
