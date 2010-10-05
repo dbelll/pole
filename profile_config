@@ -1,4 +1,13 @@
 timestamp
+#gridsize
+#threadblocksize
+#dynsmemperblock
+#stasmemperblock
 regperthread
 branch
 divergent_branch
+
+gld_incoherent
+gld_coherent
+gst_incoherent
+gst_coherent

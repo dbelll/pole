@@ -13,7 +13,8 @@
 
 #define BLOCK_SIZE 128
 
-#define MAX_TIME_STEPS_PER_LAUNCH 65536
+#define MAX_TIME_STEPS_PER_LAUNCH 32768
+
 
 
 // range of values for the initial random weights, theta
@@ -118,7 +119,7 @@ void set_params(PARAMS p);
 void dump_agents(const char *str, AGENT_DATA *ag);
 
 void initialize_agentsGPU(AGENT_DATA *agCPU);
-void free_agentsGPU(AGENT_DATA *agGPU);
+void free_agentsGPU();
 void run_GPU(RESULTS *r);
 
 AGENT_DATA *initialize_agentsCPU();

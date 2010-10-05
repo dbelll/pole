@@ -48,7 +48,7 @@ PARAMS read_params(int argc, const char **argv)
 	if (argc == 1 || PARAM_PRESENT("HELP")) { display_help(); exit(1); }
 	
 	p.trials = GET_PARAM("TRIALS", 1024);
-	p.agent_group_size = GET_PARAM("AGENT_GROUP_SIZE", 32);
+	p.agent_group_size = GET_PARAM("AGENT_GROUP_SIZE", 1);
 	p.block_sharing = (p.agent_group_size >= 2);
 	p.agents = p.trials * p.agent_group_size;
 	p.time_steps = GET_PARAM("TIME_STEPS", 64);
@@ -128,7 +128,7 @@ int main(int argc, const char **argv)
 	
 	// Clean-up
 	free_agentsCPU(agCPU);
-//	free_agentsGPU(agGPU);
+	free_agentsGPU();
 	
 	free_results(rGPU);
 	free_results(rCPU);

@@ -44,6 +44,12 @@ __constant__ float *dc_Q;
 __constant__ unsigned *dc_action;
 
 static AGENT_DATA *last_CPU_agent_dump;
+static unsigned *d_seeds;
+static float *d_theta;
+static float *d_e;
+static float *d_s;
+static float *d_Q;
+static unsigned *d_action;
 
 void set_start_end_times(unsigned start, unsigned end)
 {
@@ -265,6 +271,14 @@ __device__ __host__ float calc_Q(float *s, unsigned a, float *theta, unsigned st
 	return Q;
 }
 
+__device__ float calc_QGPU(float *s, unsigned a, float *theta)
+{
+	// only one feature corresponds with any given state
+	unsigned feature = feature_for_state(s, dc_agents);
+	float Q = theta[(a + feature * dc_num_actions) * dc_agents];
+	return Q;
+}
+
 __device__ __host__ void update_stored_Q(float *Q, float *s, float *theta, unsigned stride, 
 																			unsigned num_actions)
 {
@@ -293,6 +307,23 @@ __device__ __host__ unsigned best_action(float *s, float *theta, float *Q, unsig
 	return best_action;
 }
 
+__device__ unsigned best_actionGPU(float *s, float *theta, float *Q)
+{
+	// calculate the Q value for each action
+	Q[0] = calc_QGPU(s, 0, theta);
+	unsigned best_action = 0;
+	float bestQ = Q[0];
+
+	for (int a = 1; a < dc_num_actions; a++) {
+		Q[a * dc_agents] = calc_Q(s, a, theta, dc_agents, dc_num_actions);
+		if (Q[a * dc_agents] > bestQ) {
+			bestQ = Q[a * dc_agents];
+			best_action = a;
+		}
+	}
+	return best_action;
+}
+
 // choose action from current state, storing Q values for each possible action in Q
 __device__ __host__ unsigned choose_action(float *s, float *theta, float epsilon, unsigned stride, 
 											float *Q, unsigned num_actions, unsigned *seeds)
@@ -303,6 +334,18 @@ __device__ __host__ unsigned choose_action(float *s, float *theta, float epsilon
 		// choose random action
 		float r = RandUniform(seeds, stride);
 		a = r * num_actions;
+	}
+	return a;
+}
+
+__device__ unsigned choose_actionGPU(float *s, float *theta, float *Q, unsigned *seeds)
+{
+	// always calcualte the best action and store all the Q values for each action
+	unsigned a = best_actionGPU(s, theta, Q);
+	if (dc_epsilon > 0.0f && RandUniform(seeds, dc_agents) < dc_epsilon){
+		// choose random action
+		float r = RandUniform(seeds, dc_agents);
+		a = r * dc_num_actions;
 	}
 	return a;
 }
@@ -882,11 +925,11 @@ void initialize_agentsGPU(AGENT_DATA *agCPU)
 //	AGENT_DATA *ag;
 //	CUDA_SAFE_CALL(cudaMalloc((void **)&ag, sizeof(AGENT_DATA)));
 	unsigned *d_seeds = device_copyui(agCPU->seeds, _p.agents * 4);
-	float *d_theta = device_copyf(agCPU->theta, _p.agents * _p.num_features * _p.num_actions);
-	float *d_e = device_copyf(agCPU->e, _p.agents * _p.num_features * _p.num_actions);
-	float *d_s = device_copyf(agCPU->s, _p.agents * _p.state_size);
-	float *d_Q = device_copyf(agCPU->Q, _p.agents * _p.num_actions);
-	unsigned *d_action = device_copyui(agCPU->action, _p.agents);
+	d_theta = device_copyf(agCPU->theta, _p.agents * _p.num_features * _p.num_actions);
+	d_e = device_copyf(agCPU->e, _p.agents * _p.num_features * _p.num_actions);
+	d_s = device_copyf(agCPU->s, _p.agents * _p.state_size);
+	d_Q = device_copyf(agCPU->Q, _p.agents * _p.num_actions);
+	d_action = device_copyui(agCPU->action, _p.agents);
 	
 	cudaMemcpyToSymbol("dc_seeds", &d_seeds, sizeof(unsigned *));
 	cudaMemcpyToSymbol("dc_theta", &d_theta, sizeof(float *));
@@ -898,21 +941,18 @@ void initialize_agentsGPU(AGENT_DATA *agCPU)
 //	return ag;	
 }
 
-void free_agentsGPU(AGENT_DATA *ag)
+void free_agentsGPU()
 {
 #ifdef VERBOSE
 	printf("freeing agents on GPU...\n");
 #endif
-	if (ag) {
-		if (ag->seeds) cudaFree(ag->seeds);
-		if (ag->theta) cudaFree(ag->theta);
-		if (ag->e) cudaFree(ag->e);
-		if (ag->ep_data) cudaFree(ag->ep_data);
-		if (ag->s) cudaFree(ag->s);
-		if (ag->Q) cudaFree(ag->Q);
-		if (ag->action) cudaFree(ag->action);
-		free(ag);
-	}
+	if (d_seeds) cudaFree(d_seeds);
+	if (d_theta) cudaFree(d_theta);
+	if (d_e) cudaFree(d_e);
+//	if (d_ep_data) cudaFree(ag->ep_data);
+	if (d_s) cudaFree(d_s);
+	if (d_Q) cudaFree(d_Q);
+	if (d_action) cudaFree(d_action);
 }
 
 __global__ void pole_kernel(float *results)
@@ -926,8 +966,8 @@ __global__ void pole_kernel(float *results)
 	
 	// prepare for first iteration by chosing first action and updating the trace
 	if (dc_start_time == 0) {
-		dc_action[iGlobal] = choose_action(dc_s + iGlobal, dc_theta + iGlobal, dc_epsilon, dc_agents, 
-											dc_Q + iGlobal, dc_num_actions, dc_seeds + iGlobal);
+		dc_action[iGlobal] = choose_actionGPU(dc_s + iGlobal, dc_theta + iGlobal, dc_Q + iGlobal,
+																				 dc_seeds + iGlobal);
 		update_trace(dc_action[iGlobal], dc_s + iGlobal, dc_e + iGlobal, dc_num_features, 
 													dc_num_actions, dc_agents, dc_gamma, dc_lambda);
 	}
@@ -1022,6 +1062,7 @@ void run_GPU(RESULTS *r)
 	float *d_results = device_allocf(_p.agents * _p.num_tests);
 	
 	// one thread for each agent in each trial
+	printf("%d total agents\n", _p.agents);
 	dim3 blockDim(BLOCK_SIZE);
 	dim3 gridDim(1 + (_p.agents - 1) / BLOCK_SIZE);
 	if (gridDim.x > 65535){

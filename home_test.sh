@@ -1,7 +1,7 @@
 #!/bin/bash
 # Testing script for home computer
 _trials="--TRIALS=1024"
-_time="--TIME_STEPS=65536"
+_time="--TIME_STEPS=262144"
 _groups="--AGENT_GROUP_SIZE=1"
 _interval="--SHARING_INTERVAL=4"
 _ss="--STATE_SIZE=4"

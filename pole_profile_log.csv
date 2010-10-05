@@ -1,7 +1,44 @@
+NV_Warning: Signal gst_incoherent can not be profiled in this run.
+NV_Warning: Signal gst_coherent can not be profiled in this run.
 # CUDA_PROFILE_LOG_VERSION 2.0
 # CUDA_DEVICE 0 GeForce 8800 GT
 # CUDA_PROFILE_CSV 1
-timestamp,method,gputime,cputime,regperthread,occupancy,branch,divergent_branch
-416.247,memcpyHtoD,2280.288,3631.781
-4219.477,_Z16kernel_operationiPf,213.728,262.676,3,0.667,2240,0
-4664.581,memcpyDtoH,2765.600,3367.811
+timestamp,method,gputime,cputime,regperthread,occupancy,branch,divergent_branch,gld_incoherent,gld_coherent
+754.042,memcpyHtoD,10.912,781.850
+1546.331,memcpyHtoD,115.840,316.643
+1874.902,memcpyHtoD,115.616,295.058
+2178.665,memcpyHtoD,10.560,47.696
+2233.697,memcpyHtoD,6.880,47.955
+2300.918,memcpyHtoD,5.152,16.030
+2345.820,memcpyHtoD,3.680,4.455
+2353.573,memcpyHtoD,3.520,4.234
+2368.409,memcpyHtoD,3.552,3.103
+2381.946,memcpyHtoD,3.488,3.206
+2395.901,memcpyHtoD,3.552,4.087
+2410.812,memcpyHtoD,3.520,3.829
+2426.400,memcpyHtoD,3.584,4.102
+2440.881,memcpyHtoD,3.488,3.925
+2454.915,memcpyHtoD,3.552,3.952
+2469.528,memcpyHtoD,3.552,4.180
+2484.629,memcpyHtoD,3.520,3.071
+2498.611,memcpyHtoD,3.520,3.064
+2512.376,memcpyHtoD,3.520,4.106
+2527.230,memcpyHtoD,3.520,3.790
+2541.733,memcpyHtoD,13.024,13.579
+2566.003,memcpyHtoD,3.552,3.771
+2626.442,memcpyHtoD,3.552,4.484
+2638.993,memcpyHtoD,3.552,4.656
+2695.660,_Z11pole_kernelPf,4274470.500,4274307.000,16,0.333,78525457,4910837,67110880,110527020
+4277286.500,memcpyHtoD,4.480,15.254
+4277308.500,memcpyHtoD,4.448,4.006
+4277834.500,_Z11pole_kernelPf,4207118.500,4207595.500,16,0.333,77563534,4595113,67110496,109965855
+8485652.000,_Z13row_reductionPfiii,7.200,393.958,6,1.000,276,3,0,80
+8486142.000,_Z13row_reductionPfiii,4.160,21.883,6,1.000,0,0,4,0
+8486249.000,memcpyDtoH,4.160,27.368
+8486278.000,memcpyDtoH,3.744,19.357
+8486306.000,memcpyDtoH,3.680,18.983
+8486333.000,memcpyDtoH,3.776,18.760
+8486360.000,memcpyDtoH,3.680,19.338
+8486389.000,memcpyDtoH,3.872,19.988
+8486417.000,memcpyDtoH,3.936,19.441
+8486444.000,memcpyDtoH,3.744,19.266
