@@ -12,13 +12,13 @@
 #pragma mark -
 #pragma mark Problem Constants
 
-#define BLOCK_SIZE 2
+#define BLOCK_SIZE 256
 
 // range of values for the initial random weights, theta
 #define RAND_WGT_MIN -1.0f
 #define RAND_WGT_MAX 1.0f
 
-#define DIVS 5
+#define DIVS 3
 
 // parameters of the problem and tiling of state space
 // see Brownlee. The pole balancing problem: a benchmark control theory problem. hdl.handle.net (2005)
@@ -28,7 +28,7 @@
 
 #define ANGLE_VEL_MAX .05f
 #define ANGLE_VEL_MIN (-ANGLE_VEL_MAX)
-#define ANGLE_VEL_DIV DIVS
+#define ANGLE_VEL_DIV 2
 
 #define X_MAX 2.400f
 #define X_MIN (-X_MAX)
@@ -36,10 +36,10 @@
 
 #define X_VEL_MAX .5f
 #define X_VEL_MIN (-X_VEL_MAX)
-#define X_VEL_DIV DIVS
+#define X_VEL_DIV 2
 
 // number of standard deviations equal to the maximum value for determining initial state values
-#define SD_FOR_MAX 2.0f
+//#define SD_FOR_MAX 2.0f
 
 #define NUM_FEATURES (ANGLE_DIV * ANGLE_VEL_DIV * X_DIV *X_VEL_DIV)
 #define NUM_STATE_VALUES 4
@@ -72,7 +72,7 @@ typedef struct {
 	unsigned sharing_interval;		// SHARING_INTERVAL command-line parameter
 	unsigned block_sharing;
 	unsigned data_lines;			// DATA_LINES command-line parameter
-	unsigned agents;				// total number of agents
+	unsigned agents;				// total number of agents = agents per group * number of trials
 	unsigned num_sharing_intervals;
 	unsigned data_interval;
 	float epsilon;				// exploration factor
@@ -88,6 +88,7 @@ typedef struct {
 	unsigned state_size;		// a state is this number of floats.
 	unsigned test_interval;		// number of time steps between testing
 	unsigned test_reps;			// number of reps in each test
+	unsigned num_tests;
 } PARAMS;
 
 typedef struct{
@@ -104,9 +105,7 @@ typedef struct{
 } AGENT_DATA;		// may hold either host or device pointers
 
 typedef struct{
-	float *begun;		// cumulative number of episodes begun
-	float *ended;		// cumulative number of episodes ended
-	float *total_length;	// total length for all the ended episodes
+	float *avg_fail;	// average number of failures per test
 } RESULTS;
 
 #pragma mark -

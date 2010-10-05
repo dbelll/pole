@@ -87,6 +87,7 @@ PARAMS read_params(int argc, const char **argv)
 	
 	p.test_interval = GET_PARAM("TEST_INTERVAL", p.time_steps);
 	p.test_reps = GET_PARAM("TEST_REPS", 10000);
+	p.num_tests = p.time_steps / p.test_interval;
 	
 	printf("[POLE][TRIALS%7d][TIME_STEPS%7d][SHARING_INTERVAL%7d][AGENT_GROUP_SIZE%7d][ALPHA%7.4f]"
 		   "[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][DATA_LINES%7d][STATE_SIZE%7d][TEST_INTERVAL%7d]"

@@ -15,6 +15,57 @@
 #include "cuda_utils.h"
 #include "main.h"
 
+// paramaters in constant memory on the device
+__constant__ unsigned dc_agents;
+__constant__ unsigned dc_time_steps;
+
+__constant__ float dc_epsilon;
+__constant__ float dc_gamma;
+__constant__ float dc_lambda;
+__constant__ float dc_alpha;
+
+__constant__ unsigned dc_num_actions;
+__constant__ unsigned dc_num_features;
+
+__constant__ unsigned dc_test_interval;
+__constant__ unsigned dc_test_reps;
+
+
+// fixed pointers in constant memory on the device
+__constant__ unsigned *dc_seeds;
+__constant__ float *dc_theta;
+__constant__ float *dc_e;
+__constant__ float *dc_s;
+__constant__ float *dc_Q;
+__constant__ unsigned *dc_action;
+
+// copy parameter values to constant memory on device
+void set_constant_params(PARAMS p)
+{
+	cudaMemcpyToSymbol("dc_agents", &p.agents, sizeof(unsigned));
+	cudaMemcpyToSymbol("dc_time_steps", &p.time_steps, sizeof(unsigned));
+	cudaMemcpyToSymbol("dc_epsilon", &p.epsilon, sizeof(float));
+	cudaMemcpyToSymbol("dc_gamma", &p.gamma, sizeof(float));
+	cudaMemcpyToSymbol("dc_lambda", &p.lambda, sizeof(float));
+	cudaMemcpyToSymbol("dc_alpha", &p.alpha, sizeof(float));
+	cudaMemcpyToSymbol("dc_num_actions", &p.num_actions, sizeof(unsigned));
+	cudaMemcpyToSymbol("dc_num_features", &p.num_features, sizeof(unsigned));
+	cudaMemcpyToSymbol("dc_test_interval", &p.test_interval, sizeof(unsigned));
+	cudaMemcpyToSymbol("dc_test_reps", &p.test_reps, sizeof(unsigned));
+}
+
+// copy agent data pointers (device pointers) to constant memory on device
+void set_constant_pointers(AGENT_DATA *ag)
+{
+	cudaMemcpyToSymbol("dc_seeds", &ag->seeds, sizeof(unsigned *));
+	cudaMemcpyToSymbol("dc_theta", &ag->theta, sizeof(float *));
+	cudaMemcpyToSymbol("dc_e", &ag->e, sizeof(float *));
+	cudaMemcpyToSymbol("dc_s", &ag->s, sizeof(float *));
+	cudaMemcpyToSymbol("dc_Q", &ag->Q, sizeof(float *));
+	cudaMemcpyToSymbol("dc_action", &ag->action, sizeof(unsigned *));
+}
+
+
 /*
 	Procedures for setting up and running the pole balancing experiements on CPU and GPU
  */
@@ -24,24 +75,27 @@ static unsigned g_seeds[4] = {2784565659u, 1491908209u, 3415062841u, 3293636241u
 
 #pragma mark CPU & GPU
 
-// random number in an interval from -max to +max using random normal with standard deviation = sd
-__host__ __device__ float random_interval(unsigned *seeds, unsigned stride, float max, float sd)
+// random number in an interval from -max to +max using random uniform distribution
+__host__ __device__ float random_interval(unsigned *seeds, unsigned stride, float max)
 {
-	float r;
+#pragma unused(sd)
+	float r = (-max) + 2 * max * RandUniform(seeds, stride);
 	// keep generating values until one is within -max to +max
-	do {
-		r = RandNorm(seeds, stride) / (sd * max);
-	} while (r < -max || r > max);
+//	do {
+//		r = RandNorm(seeds, stride) * sd;
+//	} while (r < -max || r > max);
 	return r;
 }
 
 // randomize the state
 __host__ __device__ void randomize_state(float *s, unsigned *seeds, unsigned stride)
 {
-	s[0] = random_interval(seeds, stride, ANGLE_MAX, ANGLE_MAX / SD_FOR_MAX);
-	s[stride] = random_interval(seeds, stride, ANGLE_VEL_MAX, ANGLE_VEL_MAX / SD_FOR_MAX);
-	s[2*stride] = random_interval(seeds, stride, X_MAX, X_MAX / SD_FOR_MAX);
-	s[3*stride] = random_interval(seeds, stride, X_VEL_MAX, X_VEL_MAX / SD_FOR_MAX);
+	s[0] = random_interval(seeds, stride, ANGLE_MAX);
+//	s[stride] = random_interval(seeds, stride, ANGLE_VEL_MAX);
+	s[stride] = 0.0f;
+	s[2*stride] = random_interval(seeds, stride, X_MAX);
+//	s[3*stride] = random_interval(seeds, stride, X_VEL_MAX);
+	s[3*stride] = 0.0f;
 }
 
 // reset eligibility traces to 0.0f
@@ -60,6 +114,7 @@ __device__ __host__ unsigned terminal_state(float *s, unsigned stride)
 	return s[2*stride] < X_MIN || s[2*stride] > X_MAX || 
 			s[0] < ANGLE_MIN || s[0] > ANGLE_MAX;
 }
+
 
 // take an action from the current state, s, returning the reward and saving the new state in s_prime
 __device__ __host__ float take_action(unsigned a, float *s, float *s_prime, unsigned stride)
@@ -260,22 +315,21 @@ __device__ __host__ void update_trace(unsigned action, float *s, float *e, unsig
 
 // Update theta values for one agent
 // theta = theta + alpha * delta * eligibility trace
-//__device__
- __host__ void update_thetas(float *theta, float *e, float alpha, float delta, unsigned num_features, unsigned stride, unsigned num_actions)
+__device__ __host__ void update_thetas(float *theta, float *e, float alpha, float delta, unsigned num_features, unsigned stride, unsigned num_actions)
 {
 	if (alpha == 0.0f || delta == 0.0f) return;
-#ifdef DUMP_THETA_UPDATE_CALCULATIONS
-	printf("updating thetas for alpha = %9.6f, delta = %9.6f\n", alpha, delta);
-#endif
+//#ifdef DUMP_THETA_UPDATE_CALCULATIONS
+//	printf("updating thetas for alpha = %9.6f, delta = %9.6f\n", alpha, delta);
+//#endif
 	for (int fa = 0; fa < num_features * num_actions; fa++) {
 		if (e[fa*stride] > 0.001f) {
-#ifdef DUMP_THETA_UPDATE_CALCULATIONS
-			printf("   feature-action %5d(%4x) %3d with trace %9.6f changed from %9.6f", (fa/num_actions), divs_for_feature(fa/num_actions), (fa%num_actions), e[fa*stride], theta[fa*stride]);
-#endif
+//#ifdef DUMP_THETA_UPDATE_CALCULATIONS
+//			printf("   feature-action %5d(%4x) %3d with trace %9.6f changed from %9.6f", (fa/num_actions), divs_for_feature(fa/num_actions), (fa%num_actions), e[fa*stride], theta[fa*stride]);
+//#endif
 			theta[fa * stride] += alpha * delta * e[fa * stride];
-#ifdef DUMP_THETA_UPDATE_CALCULATIONS
-			printf(" to %9.6f\n", theta[fa*stride]);
-#endif
+//#ifdef DUMP_THETA_UPDATE_CALCULATIONS
+//			printf(" to %9.6f\n", theta[fa*stride]);
+//#endif
 		}
 	}
 }
@@ -381,9 +435,7 @@ RESULTS *initialize_results()
 	printf("initializing result arrays...\n");
 #endif
 	RESULTS *r = (RESULTS *)malloc(sizeof(RESULTS));
-	r->begun = (float *)malloc(_p.data_lines * sizeof(float));
-	r->ended = (float *)malloc(_p.data_lines * sizeof(float));
-	r->total_length = (float *)malloc(_p.data_lines * sizeof(float));
+	r->avg_fail = (float *)malloc((_p.time_steps / _p.test_interval) * sizeof(float));
 	return r;
 }
 
@@ -393,9 +445,7 @@ void free_results(RESULTS *r)
 	printf("freeing result arrays...\n");
 #endif
 	if (r) {
-		if (r->begun) free(r->begun);
-		if (r->ended) free(r->ended);
-		if (r->total_length) free(r->total_length);
+		if (r->avg_fail) free(r->avg_fail);
 		free(r);
 	}
 }
@@ -403,9 +453,9 @@ void free_results(RESULTS *r)
 void display_results(const char *str, RESULTS *r)
 {
 	printf("%s \n", str);
-	printf("    TIME    BEGUN   ENDED   TOT_LENGTH\n");
-	for (int i = 0; i < _p.data_lines; i++) {
-		printf("   [%4d] %7.0f %7.0f %12.0f\n", i, r->begun[i], r->ended[i], r->total_length[i]);
+	printf("    TEST  Avg Fails\n");
+	for (int i = 0; i < _p.num_tests; i++) {
+		printf("   [%4d]%9.4f\n", i, r->avg_fail[i]);
 	}
 }
 
@@ -428,13 +478,11 @@ AGENT_DATA *initialize_agentsCPU()
 	ag->seeds = create_seeds(_p.agents);
 	ag->theta = create_theta(_p.agents, _p.num_features, _p.num_actions);
 	ag->e = create_e(_p.agents, _p.num_features, _p.num_actions);
-	unsigned rows = _p.agents * ((_p.state_size + 2) * _p.sharing_interval + _p.state_size + 1);
-	ag->ep_data = (float *)malloc(rows * sizeof(float));
+//	unsigned rows = _p.agents * ((_p.state_size + 2) * _p.sharing_interval + _p.state_size + 1);
+//	ag->ep_data = (float *)malloc(rows * sizeof(float));
 	ag->s = create_states(_p.agents, ag->seeds);
 	ag->Q = (float *)malloc(_p.agents * _p.num_actions * sizeof(float));
 	ag->action = create_actions(_p.agents, _p.num_actions);
-//	ag->prev_action = (unsigned *)malloc(_p.agents * sizeof(unsigned));
-//	ag->f_prev_state = (unsigned *)malloc(_p.agents * sizeof(unsigned));
 	return ag;
 }
 
@@ -453,8 +501,9 @@ float run_test(AGENT_DATA *ag)
 	for (int agent = 0; agent < _p.agents; agent++) {
 //		printf("agent %d before testing...\n", agent);
 //		dump_agent(ag, agent);
+//		unsigned old_num_failures = num_failures;
 		
-		// save agent state
+		// save agent state prior to testing
 		float s0 = ag->s[agent];
 		float s1 = ag->s[agent + _p.agents];
 		float s2 = ag->s[agent + 2*_p.agents];
@@ -467,7 +516,10 @@ float run_test(AGENT_DATA *ag)
 		float Q0 = ag->Q[agent];
 		float Q1 = ag->Q[agent + _p.agents];
 		
-		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+//		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+		ag->action[agent] = best_action(ag->s + agent, ag->theta + agent, ag->Q + agent, _p.agents, _p.num_actions);
+//		choose_action(ag->s + agent, ag->theta + agent, 0.0f, _p.agents, ag->Q + agent, 
+//																_p.num_actions, ag->seeds + agent);
 
 		// run the test for specified number of reps
 		for (int t = 0; t < _p.test_reps; t++) {
@@ -477,8 +529,9 @@ float run_test(AGENT_DATA *ag)
 				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
 			}
 			// choose action with epsilon = 0.0
-			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, 0.0f, 
-									_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
+			ag->action[agent] = best_action(ag->s + agent, ag->theta + agent, ag->Q + agent, _p.agents, _p.num_actions);
+//			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, 0.0f, 
+//									_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
 		}
 		
 		// restore agent state
@@ -496,6 +549,8 @@ float run_test(AGENT_DATA *ag)
 		
 //		printf("after testing...\n");
 //		dump_agent(ag, agent);
+
+//		printf("agent %d failues = %d\n", agent, num_failures - old_num_failures);
 	}
 
 
@@ -520,11 +575,6 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 		printf("---------------------- INITIAL SETUP ----------------------\n");
 		printf("-----------------------------------------------------------\n");
 #endif
-//	float orig_a = ag->s[0];
-//	float orig_aV = ag->s[_p.agents];
-//	float orig_x = ag->s[2*_p.agents];
-//	float orig_xV = ag->s[3*_p.agents];
-//	printf("orig state: %6.2f %6.2f %6.2f %6.2f\n", orig_a, orig_aV, orig_x, orig_xV);
 
 	// set-up agents to begin the loop by choosing the first action and updating traces
 	for (int agent = 0; agent < _p.agents; agent++) {
@@ -588,6 +638,7 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 				dump_agent(ag, agent);
 #endif
 				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+				
 //				if (agent == 0){
 //					orig_a = ag->s[0];
 //					orig_aV = ag->s[_p.agents];
@@ -654,7 +705,7 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 		}
 
 #ifdef DUMP_INTERMEDIATE_FAIL_COUNTS
-		if (0 == (1+t) % DUMP_INTERMEDIATE_FAIL_COUNTS) {
+		if (0 == (1+t) % _p.test_interval) {
 			printf("intermediate fail count =%7.2f\n", (tot_fails - prev_tot_fails)/(float)_p.trials);
 			prev_tot_fails = tot_fails;
 		}
@@ -728,7 +779,14 @@ AGENT_DATA *initialize_agentsGPU(AGENT_DATA *agCPU)
 #ifdef VERBOSE
 	printf("initializing agents on GPU...\n");
 #endif
-	AGENT_DATA *ag = (AGENT_DATA *)malloc(sizeof(AGENT_DATA));
+	AGENT_DATA *ag;
+	CUDA_SAFE_CALL(cudaMalloc((void **)&ag, sizeof(AGENT_DATA)));
+	ag->seeds = device_copyui(agCPU->seeds, _p.agents * 4);
+	ag->theta = device_copyf(agCPU->theta, _p.num_features * _p.num_actions);
+	ag->e = device_copyf(agCPU->e, _p.num_features * _p.num_actions);
+	ag->s = device_copyf(agCPU->s, _p.agents * _p.state_size);
+	ag->Q = device_copyf(agCPU->Q, _p.agents * _p.num_actions);
+	ag->action = device_copyui(agCPU->action, _p.agents);
 	
 	return ag;	
 }
@@ -745,51 +803,125 @@ void free_agentsGPU(AGENT_DATA *ag)
 		if (ag->ep_data) cudaFree(ag->ep_data);
 		if (ag->s) cudaFree(ag->s);
 		if (ag->Q) cudaFree(ag->Q);
+		if (ag->action) cudaFree(ag->action);
 		free(ag);
 	}
 }
 
-void run_GPU(AGENT_DATA *cv, RESULTS *r)
+__global__ void pole_kernel(float *results)
+{
+	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
+	
+	__shared__ float s[4 * BLOCK_SIZE];
+	__shared__ unsigned act[BLOCK_SIZE];
+	__shared__ unsigned seeds[4 * BLOCK_SIZE];
+	__shared__ float Q[2*BLOCK_SIZE];
+	
+	// prepare for main loop by chosing first action and updating the trace
+	dc_action[iGlobal] = choose_action(dc_s + iGlobal, dc_theta + iGlobal, dc_epsilon, dc_agents, 
+										dc_Q + iGlobal, dc_num_actions, dc_seeds + iGlobal);
+	update_trace(dc_action[iGlobal], dc_s + iGlobal, dc_e + iGlobal, dc_num_features, 
+												dc_num_actions, dc_agents, dc_gamma, dc_lambda);
+	
+	for (int t = 0; t < dc_time_steps; t++) {
+		
+		if (0 == (t % dc_test_interval) && (t > 0)){
+			// run the test and record the results
+			
+			// save state to shared memory
+			s[threadIdx.x] = dc_s[iGlobal];
+			s[threadIdx.x + BLOCK_SIZE] = dc_s[iGlobal + dc_agents];
+			s[threadIdx.x + 2*BLOCK_SIZE] = dc_s[iGlobal + 2*dc_agents];
+			s[threadIdx.x + 3*BLOCK_SIZE] = dc_s[iGlobal + 3*dc_agents];
+			act[threadIdx.x] = dc_action[iGlobal];
+			seeds[threadIdx.x] = dc_seeds[iGlobal];
+			seeds[threadIdx.x + BLOCK_SIZE] = dc_seeds[iGlobal + dc_agents];
+			seeds[threadIdx.x + 2*BLOCK_SIZE] = dc_seeds[iGlobal + 2*dc_agents];
+			seeds[threadIdx.x + 3*BLOCK_SIZE] = dc_seeds[iGlobal + 3*dc_agents];
+			Q[threadIdx.x] = dc_Q[iGlobal];
+			Q[threadIdx.x + BLOCK_SIZE] = dc_Q[iGlobal + dc_agents];
+			
+			dc_action[iGlobal] = best_action(dc_s + iGlobal, dc_theta + iGlobal, dc_Q + iGlobal,
+																		dc_agents, dc_num_actions);
+			unsigned num_failures = 0;
+			for (int tt = 0; tt < dc_test_reps; tt++) {
+				take_action(dc_action[iGlobal], dc_s + iGlobal, dc_s + iGlobal, dc_agents);
+				if (terminal_state(dc_s + iGlobal, dc_agents)) {
+					++num_failures;
+					randomize_state(dc_s + iGlobal, dc_seeds + iGlobal, dc_agents);
+				}
+				dc_action[iGlobal] = best_action(dc_s + iGlobal, dc_theta + iGlobal, dc_Q + iGlobal,
+																		dc_agents, dc_num_actions);
+			}
+			unsigned iResults = t / dc_test_interval;
+			results[iGlobal + iResults * dc_agents] = num_failures;
+			
+			// restore agent state
+			dc_s[iGlobal] = s[threadIdx.x];
+			dc_s[iGlobal + dc_agents] = s[threadIdx.x + BLOCK_SIZE];
+			dc_s[iGlobal + 2*dc_agents] = s[threadIdx.x + 2*BLOCK_SIZE];
+			dc_s[iGlobal + 3*dc_agents] = s[threadIdx.x + 3*BLOCK_SIZE];
+			dc_action[iGlobal] = act[threadIdx.x];
+			dc_seeds[iGlobal] = seeds[threadIdx.x];
+			dc_seeds[iGlobal + dc_agents] = seeds[threadIdx.x + BLOCK_SIZE];
+			dc_seeds[iGlobal + 2*dc_agents] = seeds[threadIdx.x + 2*BLOCK_SIZE];
+			dc_seeds[iGlobal + 3*dc_agents] = seeds[threadIdx.x + 3*BLOCK_SIZE];
+			dc_Q[iGlobal] = Q[threadIdx.x];
+			dc_Q[iGlobal + dc_agents] = Q[threadIdx.x + BLOCK_SIZE];
+		}
+		
+		float reward = take_action(dc_action[iGlobal], dc_s + iGlobal, dc_s + iGlobal, dc_agents);
+		unsigned fail = terminal_state(dc_s + iGlobal, dc_agents);
+		if (fail) {
+			randomize_state(dc_s + iGlobal, dc_seeds + iGlobal, dc_agents);			
+		}
+		float Q_a = dc_Q[iGlobal + dc_action[iGlobal] * dc_agents];
+		dc_action[iGlobal] = choose_action(dc_s + iGlobal, dc_theta + iGlobal, dc_epsilon, 
+									dc_agents, dc_Q + iGlobal, dc_num_actions, dc_seeds + iGlobal);
+		float Q_a_prime = dc_Q[iGlobal + dc_action[iGlobal] * dc_agents];
+		float delta = reward - Q_a + (fail ? 0 : dc_gamma * Q_a_prime);
+		update_thetas(dc_theta + iGlobal, dc_e + iGlobal, dc_alpha, delta, dc_num_features, 
+																		dc_agents, dc_num_actions);
+		update_stored_Q(dc_Q + iGlobal, dc_s + iGlobal, dc_theta + iGlobal, dc_agents, 
+																					dc_num_actions);
+		update_trace(dc_action[iGlobal], dc_s + iGlobal, dc_e + iGlobal, dc_num_features, 
+													dc_num_actions, dc_agents, dc_gamma, dc_lambda);
+	}
+}
+
+void run_GPU(AGENT_DATA *ag, RESULTS *r)
 {
 #ifdef VERBOSE
 	printf("running on CPU...\n");
 #endif
-}
-
-__global__ void kernel_operation(int n, float *x)
-{
+	// on entry agent's theta, eligibility trace, and state values have been initialized
+	// to point to the values in device memory
 	
-}
-
-void gpu_operation(int n, float *x)
-{
-	unsigned int timer;
-	CREATE_TIMER(&timer);
-
-	// copy data to device
-	START_TIMER(timer);
-	float *d_x = NULL;
-	int size = n * sizeof(float);
-	CUDA_SAFE_CALL(cudaMalloc((void **)&d_x, size));
-	CUDA_SAFE_CALL(cudaMemcpy(d_x, x, size, cudaMemcpyHostToDevice));
-	cudaThreadSynchronize();
-	STOP_TIMER(timer, "copy data to device");
-
-
-	// calculate size of block and grid
-	int tot_threads = 32 * (1 + (n-1)/32);	// smallest multiple of 32 >= n
-	dim3 blockDim(min(512,tot_threads));
-	dim3 gridDim(1 + (tot_threads -1)/512, 1);
-	if (gridDim.x > 65535) {
+	// setup constant memory on device
+	set_constant_params(_p);
+	set_constant_pointers(ag);
+	
+	// allocate an array to hold individual thread test results
+	float *results = device_allocf(_p.agents * _p.num_tests);
+	
+	// one thread for each agent in each trial
+	dim3 blockDim(BLOCK_SIZE);
+	dim3 gridDim(1 + (_p.agents - 1) / BLOCK_SIZE);
+	if (gridDim.x > 65535){
 		gridDim.y = 1 + (gridDim.x-1) / 65535;
 		gridDim.x = 1 + (gridDim.x-1) / gridDim.y;
 	}
+	printf("%d threads per block, (%d x %d) grid of blocks\n", blockDim.x, gridDim.x, gridDim.y);
 	
-	// Do the operation on the device
-	START_TIMER(timer);	
-	kernel_operation<<<gridDim, blockDim>>>(n, d_x);
+	unsigned timer;
+	CREATE_TIMER(&timer);
+	START_TIMER(timer);
+	pole_kernel<<<gridDim, blockDim>>>(results);
 	cudaThreadSynchronize();
-	STOP_TIMER(timer, "GPU operations");
+	STOP_TIMER(timer, "run pole kernel");
+	
+
+
 
 	// Check if kernel execution generated an error
 	CUT_CHECK_ERROR("Kernel execution failed");
@@ -797,10 +929,10 @@ void gpu_operation(int n, float *x)
 	
 	// copy results back to host
 	START_TIMER(timer);
-	CUDA_SAFE_CALL(cudaMemcpy(x, d_x, size, cudaMemcpyDeviceToHost));
+//	CUDA_SAFE_CALL(cudaMemcpy(x, d_x, size, cudaMemcpyDeviceToHost));
 	cudaThreadSynchronize();
 	STOP_TIMER(timer, "copy data back to host");
-	
-	
+
+
 }
 

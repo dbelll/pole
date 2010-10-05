@@ -1,7 +1,28 @@
+Setup an output data structure to hold the test results on the device, then use reduction to calculate the avearge results.
+
 Pass a pointer to the AGENT_DATA and PARAMS to the routines that run on host and device.
 
-Add a test function that will run the agent with learning turned off and epsilon = 0.0.  Just use
-the stored thetas to calculate Q values for state/actions and choose optimal action each step.
-	test(repitions, thetas, stride), returns the number of failures.
+Only keep track of a subset of the thetat values with lambda values.
 
-When doing the test, randomize state and reset eligibility traces when done.
+Write position, angle, and action to a file for playback.
+
+Put agent datsa structure into constant memory.
+
+
+-------
+Sharing
+-------
+Average the theta values across all agents
+	Straight average, all agents given the same weight
+	Exclude values that have never been updated
+	Give extra weight to agents that 'own' a section of the state space.
+	Keep track of the 'update weight' which is the some of the lambda amounts used to update each theta
+		When sharing use a weighted average based on the 'update weights' 
+	
+record all state, action, result, state action values for the episode, then have all agents update their parameters by using the same
+
+
+---------------
+Differentiation
+---------------
+Partition the state space - each agent starts in their sector of state space whenever their state is randomized.
