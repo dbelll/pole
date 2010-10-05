@@ -24,3 +24,5 @@ tmp
 # don't include the profiling output
 profile_log.csv
 
+# other junk
+junk*

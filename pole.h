@@ -8,11 +8,13 @@
 //  Created by Dwight Bell on 8/18/10.
 //  Copyright dbelll 2010. All rights reserved.
 //
-
 #pragma mark -
 #pragma mark Problem Constants
 
-#define BLOCK_SIZE 256
+#define BLOCK_SIZE 128
+
+#define MAX_TIME_STEPS_PER_LAUNCH 65536
+
 
 // range of values for the initial random weights, theta
 #define RAND_WGT_MIN -1.0f
@@ -67,35 +69,36 @@
 
 typedef struct {
 	unsigned trials;
-	unsigned agent_group_size;
 	unsigned time_steps;
+	unsigned agent_group_size;
+
 	unsigned sharing_interval;		// SHARING_INTERVAL command-line parameter
 	unsigned block_sharing;
-	unsigned data_lines;			// DATA_LINES command-line parameter
-	unsigned agents;				// total number of agents = agents per group * number of trials
+
+	unsigned agents;			// total number of agents = agents per group * number of trials
 	unsigned num_sharing_intervals;
-	unsigned data_interval;
 	float epsilon;				// exploration factor
 	float gamma;				// discount factor
 	float lambda;				// eligibility trace decay factor
 	float alpha;				// learning rate
-	unsigned blocks;			// number of blocks with BLOCK_SIZE agents in each block
-	unsigned run_on_CPU;
-	unsigned run_on_GPU;
-	unsigned no_print;
+
+//	unsigned blocks;			// number of blocks with BLOCK_SIZE agents in each block
+	unsigned run_on_CPU;		// flag indicating to run on CPU
+	unsigned run_on_GPU;		// flag indicating to run on GPU
+	unsigned no_print;			// flag to suppress print-out
 	unsigned num_features;
-	unsigned num_actions;
+	unsigned num_actions;		//
 	unsigned state_size;		// a state is this number of floats.
 	unsigned test_interval;		// number of time steps between testing
 	unsigned test_reps;			// number of reps in each test
-	unsigned num_tests;
+	unsigned num_tests;			// = time_steps / test_interval
 } PARAMS;
 
 typedef struct{
 	unsigned device_flag;	// 1 => these are device pointers, 0 => host pointers
 	unsigned *seeds;	// seeds for random number generator
-	float *theta;		// weights for each of the features
-	float *e;			// eligibility trace
+	float *theta;		// weights for each of the features / actions
+	float *e;			// eligibility trace (num_features * num_actions for each agent)
 	float *ep_data;		// state, action, result, state, action values for this action episode
 	float *s;			// current state (angle, angular velocity, cart position, cart velocity)
 	float *Q;			// Q values for each action, filled when determining best action

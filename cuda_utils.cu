@@ -79,7 +79,7 @@ float *host_copyf(float *d_data, unsigned count_data)
 	unsigned size_data = count_data * sizeof(float);
 	float *data = (float *)malloc(size_data);
 	#ifdef TRACE_DEVICE_ALLOCATIONS
-		printf("[host_copyf] float data at 0x%p count = %d\n", d_data, size_data);
+		printf("[host_copyf] float data at %p count = %d\n", d_data, size_data);
 	#endif
 	CUDA_SAFE_CALL(cudaMemcpy(data, d_data, size_data, cudaMemcpyDeviceToHost));
 	return data;
@@ -90,7 +90,7 @@ unsigned *host_copyui(unsigned *d_data, unsigned count_data)
 	unsigned size_data = count_data * sizeof(unsigned);
 	unsigned *data = (unsigned *)malloc(size_data);
 	#ifdef TRACE_DEVICE_ALLOCATIONS
-		printf("[host_copyf] float data at 0x%p count = %d\n", d_data, size_data);
+		printf("[host_copyui] float data at 0x%p count = %d\n", d_data, size_data);
 	#endif
 	CUDA_SAFE_CALL(cudaMemcpy(data, d_data, size_data, cudaMemcpyDeviceToHost));
 	return data;

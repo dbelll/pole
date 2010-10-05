@@ -14,6 +14,10 @@
 		1051E0AF121DB94C00BB27B0 /* device_memory_requirements.numbers */ = {isa = PBXFileReference; lastKnownFileType = file; path = device_memory_requirements.numbers; sourceTree = "<group>"; };
 		1051E12C121F06E200BB27B0 /* main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = main.h; sourceTree = "<group>"; };
 		1051E2C91220865A00BB27B0 /* notes.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notes.txt; sourceTree = "<group>"; };
+		106F8AE2125B4C6E00DD0860 /* cuda_row_reduction.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cuda_row_reduction.h; sourceTree = "<group>"; };
+		106F8AE3125B4C6E00DD0860 /* cuda_row_reduction.cu */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cuda; path = cuda_row_reduction.cu; sourceTree = "<group>"; };
+		106F8B75125B5B8500DD0860 /* junk1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = junk1; sourceTree = "<group>"; };
+		106F8B77125B5B9E00DD0860 /* junk2 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = junk2; sourceTree = "<group>"; };
 		106FF7F5119EE68B000CD6C8 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		106FF80D119EE7F5000CD6C8 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		106FF828119EEF51000CD6C8 /* cuda_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cuda_utils.h; sourceTree = "<group>"; };
@@ -25,6 +29,7 @@
 		10294D9B11A1B93300AAF551 /* source */ = {
 			isa = PBXGroup;
 			children = (
+				106F8AE1125B4C5900DD0860 /* reduction */,
 				1051E12C121F06E200BB27B0 /* main.h */,
 				106FF80D119EE7F5000CD6C8 /* main.c */,
 				10294C5111A1A01400AAF551 /* pole.h */,
@@ -47,10 +52,21 @@
 			name = other;
 			sourceTree = "<group>";
 		};
+		106F8AE1125B4C5900DD0860 /* reduction */ = {
+			isa = PBXGroup;
+			children = (
+				106F8AE2125B4C6E00DD0860 /* cuda_row_reduction.h */,
+				106F8AE3125B4C6E00DD0860 /* cuda_row_reduction.cu */,
+			);
+			name = reduction;
+			sourceTree = "<group>";
+		};
 		106FF7E9119EE654000CD6C8 = {
 			isa = PBXGroup;
 			children = (
 				1051E2C91220865A00BB27B0 /* notes.txt */,
+				106F8B75125B5B8500DD0860 /* junk1 */,
+				106F8B77125B5B9E00DD0860 /* junk2 */,
 				10294D9B11A1B93300AAF551 /* source */,
 				10294D9C11A1B93D00AAF551 /* other */,
 			);

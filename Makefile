@@ -58,10 +58,10 @@
 EXECUTABLE	:= pole
 
 # Cuda source files (compiled with cudacc)
-CUFILES		:= pole.cu cuda_utils.cu
+CUFILES		:= pole.cu cuda_utils.cu cuda_row_reduction.cu
 
 # CUDA dependency files
-CU_DEPS		:= pole.h main.h
+CU_DEPS		:= pole.h main.h cuda_utils.h cuda_row_reduction.h
 
 # C/C++ source files (compiled with gcc / c++)
 CCFILES		:=  main.c

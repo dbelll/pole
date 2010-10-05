@@ -59,24 +59,24 @@ PARAMS read_params(int argc, const char **argv)
 		exit(1);
 	}
 	p.num_sharing_intervals = p.time_steps / p.sharing_interval;
-	p.data_lines = GET_PARAM("DATA_LINES", 16);
-	if (0 != p.time_steps % p.data_lines){
-		printf("Inconsistent arguments: TIME_STEPS=%d, DATA_LINES=%d\n", 
-			   p.time_steps, p.data_lines);
-		exit(1);
-	}
-	p.data_interval = p.time_steps / p.data_lines;
+//	p.data_lines = GET_PARAM("DATA_LINES", 16);
+//	if (0 != p.time_steps % p.data_lines){
+//		printf("Inconsistent arguments: TIME_STEPS=%d, DATA_LINES=%d\n", 
+//			   p.time_steps, p.data_lines);
+//		exit(1);
+//	}
+//	p.data_interval = p.time_steps / p.data_lines;
 	p.epsilon = GET_PARAMF("EPSILON", DEFAULT_EPSILON);
 	p.gamma = GET_PARAMF("GAMMA", DEFAULT_GAMMA);
 	p.lambda = GET_PARAMF("LAMBDA", DEFAULT_LAMBDA);
 	p.alpha = GET_PARAMF("ALPHA", DEFAULT_ALPHA);
 	
-	if (0 != p.time_steps % BLOCK_SIZE){
-		printf("Inconsistent argument: TIME_STEPS=%d, not a multiple of BLOCKSIZE which is %d\n", 
-			   p.time_steps, BLOCK_SIZE);
-		exit(1);
-	}
-	p.blocks = p.time_steps / BLOCK_SIZE;
+//	if (0 != p.time_steps % BLOCK_SIZE){
+//		printf("Inconsistent argument: TIME_STEPS=%d, not a multiple of BLOCKSIZE which is %d\n", 
+//			   p.time_steps, BLOCK_SIZE);
+//		exit(1);
+//	}
+//	p.blocks = p.time_steps / BLOCK_SIZE;
 	p.run_on_CPU = GET_PARAM("RUN_ON_CPU", 1);
 	p.run_on_GPU = GET_PARAM("RUN_ON_GPU", 1);
 	p.no_print = PARAM_PRESENT("NO_PRINT");
@@ -90,10 +90,10 @@ PARAMS read_params(int argc, const char **argv)
 	p.num_tests = p.time_steps / p.test_interval;
 	
 	printf("[POLE][TRIALS%7d][TIME_STEPS%7d][SHARING_INTERVAL%7d][AGENT_GROUP_SIZE%7d][ALPHA%7.4f]"
-		   "[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][DATA_LINES%7d][STATE_SIZE%7d][TEST_INTERVAL%7d]"
+		   "[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][STATE_SIZE%7d][TEST_INTERVAL%7d]"
 		   "[TEST_REPS%7d]\n", 
 		   p.trials, p.time_steps, p.sharing_interval, p.agent_group_size, p.alpha, p.epsilon, 
-		   p.gamma, p.lambda, p.data_lines, p.state_size, p.test_interval, p.test_reps);
+		   p.gamma, p.lambda, p.state_size, p.test_interval, p.test_reps);
 #ifdef VERBOSE
 	printf("num_agents = %d, num_features = %d\n", p.agents, p.num_features);
 #endif
@@ -106,18 +106,10 @@ int main(int argc, const char **argv)
 	set_params(p);
 	
 	// Initialize agents on CPU and GPU
-#ifdef VERBOSE
-	printf("Initializing agents...CPU...\n");
-#endif
 	AGENT_DATA *agCPU = initialize_agentsCPU();
-#ifdef DUMP_INITIAL_AGENTS
-	dump_agents("Initial CPU Agents", agCPU);
-#endif
+
 	AGENT_DATA *agGPU = NULL;
 	if (p.run_on_GPU) {
-#ifdef VERBOSE
-		printf("Initializing agents...GPU...\n");
-#endif
 		agGPU = (p.run_on_GPU) ? initialize_agentsGPU(agCPU) : NULL;
 	}
 
@@ -125,18 +117,12 @@ int main(int argc, const char **argv)
 	RESULTS *rCPU = NULL;
 	RESULTS *rGPU = NULL;
 	if (p.run_on_CPU){
-#ifdef VERBOSE
-		printf("[CPU]\n");
-#endif
 		rCPU = initialize_results();
 		run_CPU(agCPU, rCPU);
 		if (!p.no_print) display_results("CPU:", rCPU);
 	}
 	
 	if (p.run_on_GPU) {
-#ifdef VERBOSE
-		printf("[GPU]\n");
-#endif
 		rGPU = initialize_results();
 		run_GPU(agGPU, rGPU);
 		if (!p.no_print) display_results("GPU:", rGPU);
