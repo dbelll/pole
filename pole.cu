@@ -1053,5 +1053,7 @@ void run_GPU(AGENT_DATA *ag, RESULTS *r)
 #ifdef DUMP_TERMINAL_AGENT_STATE
 //	dump_agents_GPU("--------------------------------------\n       Ending Agent States\n", ag, 0);
 #endif
+
+	cudaFree(d_results);
 }
 
