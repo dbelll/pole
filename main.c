@@ -108,10 +108,7 @@ int main(int argc, const char **argv)
 	// Initialize agents on CPU and GPU
 	AGENT_DATA *agCPU = initialize_agentsCPU();
 
-	AGENT_DATA *agGPU = NULL;
-	if (p.run_on_GPU) {
-		agGPU = (p.run_on_GPU) ? initialize_agentsGPU(agCPU) : NULL;
-	}
+	if (p.run_on_GPU) initialize_agentsGPU(agCPU);
 
 	// run on CPU & GPU
 	RESULTS *rCPU = NULL;
@@ -124,14 +121,14 @@ int main(int argc, const char **argv)
 	
 	if (p.run_on_GPU) {
 		rGPU = initialize_results();
-		run_GPU(agGPU, rGPU);
+		run_GPU(rGPU);
 		if (!p.no_print) display_results("GPU:", rGPU);
 	}
 	
 	
 	// Clean-up
 	free_agentsCPU(agCPU);
-	free_agentsGPU(agGPU);
+//	free_agentsGPU(agGPU);
 	
 	free_results(rGPU);
 	free_results(rCPU);

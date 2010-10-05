@@ -434,7 +434,7 @@ float *create_e(unsigned num_agents, unsigned num_features, unsigned num_actions
 // initial random states
 float *create_states(unsigned num_agents, unsigned *seeds)
 {
-	float *states = (float *)malloc(num_agents * NUM_STATE_VALUES * sizeof(float));
+	float *states = (float *)malloc(num_agents * _p.state_size * sizeof(float));
 	for (int i = 0; i < num_agents; i++) {
 //		states[i] = random_interval(seeds + i, num_agents, ANGLE_MAX, STATE_SD);
 //		states[i + num_agents] = random_interval(seeds+i, num_agents, ANGLE_VEL_MAX, STATE_SD);
@@ -874,21 +874,28 @@ void dump_agents_GPU(const char *str, AGENT_DATA *agGPU, unsigned check)
 	free_agentsCPU(agGPUcopy);
 }
 
-AGENT_DATA *initialize_agentsGPU(AGENT_DATA *agCPU)
+void initialize_agentsGPU(AGENT_DATA *agCPU)
 {
 #ifdef VERBOSE
 	printf("initializing agents on GPU...\n");
 #endif
-	AGENT_DATA *ag;
-	CUDA_SAFE_CALL(cudaMalloc((void **)&ag, sizeof(AGENT_DATA)));
-	ag->seeds = device_copyui(agCPU->seeds, _p.agents * 4);
-	ag->theta = device_copyf(agCPU->theta, _p.agents * _p.num_features * _p.num_actions);
-	ag->e = device_copyf(agCPU->e, _p.agents * _p.num_features * _p.num_actions);
-	ag->s = device_copyf(agCPU->s, _p.agents * _p.state_size);
-	ag->Q = device_copyf(agCPU->Q, _p.agents * _p.num_actions);
-	ag->action = device_copyui(agCPU->action, _p.agents);
+//	AGENT_DATA *ag;
+//	CUDA_SAFE_CALL(cudaMalloc((void **)&ag, sizeof(AGENT_DATA)));
+	unsigned *d_seeds = device_copyui(agCPU->seeds, _p.agents * 4);
+	float *d_theta = device_copyf(agCPU->theta, _p.agents * _p.num_features * _p.num_actions);
+	float *d_e = device_copyf(agCPU->e, _p.agents * _p.num_features * _p.num_actions);
+	float *d_s = device_copyf(agCPU->s, _p.agents * _p.state_size);
+	float *d_Q = device_copyf(agCPU->Q, _p.agents * _p.num_actions);
+	unsigned *d_action = device_copyui(agCPU->action, _p.agents);
 	
-	return ag;	
+	cudaMemcpyToSymbol("dc_seeds", &d_seeds, sizeof(unsigned *));
+	cudaMemcpyToSymbol("dc_theta", &d_theta, sizeof(float *));
+	cudaMemcpyToSymbol("dc_e", &d_e, sizeof(float *));
+	cudaMemcpyToSymbol("dc_s", &d_s, sizeof(float *));
+	cudaMemcpyToSymbol("dc_Q", &d_Q, sizeof(float *));
+	cudaMemcpyToSymbol("dc_action", &d_action, sizeof(unsigned *));
+
+//	return ag;	
 }
 
 void free_agentsGPU(AGENT_DATA *ag)
@@ -994,7 +1001,7 @@ __global__ void pole_kernel(float *results)
 	}
 }
 
-void run_GPU(AGENT_DATA *ag, RESULTS *r)
+void run_GPU(RESULTS *r)
 {
 #ifdef VERBOSE
 	printf("\n==============================================\nRunning on GPU...\n");
@@ -1004,12 +1011,12 @@ void run_GPU(AGENT_DATA *ag, RESULTS *r)
 	// to point to the values in device memory
 
 #ifdef DUMP_INITIAL_AGENTS
-	dump_agents_GPU("initial agents on GPU", ag);
+//	dump_agents_GPU("initial agents on GPU", ag);
 #endif
 	
 	// setup constant memory on device
 	set_constant_params(_p);
-	set_constant_pointers(ag);
+//	set_constant_pointers(ag);
 	
 	// allocate an array to hold individual thread test results
 	float *d_results = device_allocf(_p.agents * _p.num_tests);

@@ -117,9 +117,9 @@ typedef struct{
 void set_params(PARAMS p);
 void dump_agents(const char *str, AGENT_DATA *ag);
 
-AGENT_DATA *initialize_agentsGPU(AGENT_DATA *agCPU);
+void initialize_agentsGPU(AGENT_DATA *agCPU);
 void free_agentsGPU(AGENT_DATA *agGPU);
-void run_GPU(AGENT_DATA *cv, RESULTS *r);
+void run_GPU(RESULTS *r);
 
 AGENT_DATA *initialize_agentsCPU();
 void free_agentsCPU(AGENT_DATA *agCPU);
