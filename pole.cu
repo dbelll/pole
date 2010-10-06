@@ -959,6 +959,36 @@ void free_agentsGPU()
 	if (d_action) cudaFree(d_action);
 }
 
+/*
+	copy state information from global device memory to shared memory
+	assumes stride is BLOCK_SIZE for shared memory and dc_agents for global memory
+*/
+#define COPY_STATE_TO_SHARED(iLocal, iGlobal)															\
+			s_s[iLocal] = dc_s[iGlobal];										\
+			s_s[iLocal + BLOCK_SIZE] = dc_s[iGlobal + dc_agents];				\
+			s_s[iLocal + 2*BLOCK_SIZE] = dc_s[iGlobal + 2*dc_agents];			\
+			s_s[iLocal + 3*BLOCK_SIZE] = dc_s[iGlobal + 3*dc_agents];			\
+			s_act[iLocal] = dc_action[iGlobal];									\
+			s_seeds[iLocal] = dc_seeds[iGlobal];								\
+			s_seeds[iLocal + BLOCK_SIZE] = dc_seeds[iGlobal + dc_agents];		\
+			s_seeds[iLocal + 2*BLOCK_SIZE] = dc_seeds[iGlobal + 2*dc_agents];	\
+			s_seeds[iLocal + 3*BLOCK_SIZE] = dc_seeds[iGlobal + 3*dc_agents];	\
+			s_Q[iLocal] = dc_Q[iGlobal];										\
+			s_Q[iLocal + BLOCK_SIZE] = dc_Q[iGlobal + dc_agents];
+			
+#define COPY_STATE_TO_GLOBAL(iLocal, iGlobal)									\
+			dc_s[iGlobal] = s_s[iLocal];										\
+			dc_s[iGlobal + dc_agents] = s_s[iLocal + BLOCK_SIZE];				\
+			dc_s[iGlobal + 2*dc_agents] = s_s[iLocal + 2*BLOCK_SIZE];			\
+			dc_s[iGlobal + 3*dc_agents] = s_s[iLocal + 3*BLOCK_SIZE];			\
+			dc_action[iGlobal] = s_act[iLocal];									\
+			dc_seeds[iGlobal] = s_seeds[iLocal];								\
+			dc_seeds[iGlobal + dc_agents] = s_seeds[iLocal + BLOCK_SIZE];		\
+			dc_seeds[iGlobal + 2*dc_agents] = s_seeds[iLocal + 2*BLOCK_SIZE];	\
+			dc_seeds[iGlobal + 3*dc_agents] = s_seeds[iLocal + 3*BLOCK_SIZE];	\
+			dc_Q[iGlobal] = s_Q[iLocal];										\
+			dc_Q[iGlobal + dc_agents] = s_Q[iLocal + BLOCK_SIZE];
+
 __global__ void pole_kernel(float *results)
 {
 	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
@@ -981,19 +1011,21 @@ __global__ void pole_kernel(float *results)
 		// run the test
 		if (0 == (t % dc_test_interval) && (t > dc_start_time)){
 			// run the test and record the results
-			
+
 			// save state to shared memory
-			s_s[threadIdx.x] = dc_s[iGlobal];
-			s_s[threadIdx.x + BLOCK_SIZE] = dc_s[iGlobal + dc_agents];
-			s_s[threadIdx.x + 2*BLOCK_SIZE] = dc_s[iGlobal + 2*dc_agents];
-			s_s[threadIdx.x + 3*BLOCK_SIZE] = dc_s[iGlobal + 3*dc_agents];
-			s_act[threadIdx.x] = dc_action[iGlobal];
-			s_seeds[threadIdx.x] = dc_seeds[iGlobal];
-			s_seeds[threadIdx.x + BLOCK_SIZE] = dc_seeds[iGlobal + dc_agents];
-			s_seeds[threadIdx.x + 2*BLOCK_SIZE] = dc_seeds[iGlobal + 2*dc_agents];
-			s_seeds[threadIdx.x + 3*BLOCK_SIZE] = dc_seeds[iGlobal + 3*dc_agents];
-			s_Q[threadIdx.x] = dc_Q[iGlobal];
-			s_Q[threadIdx.x + BLOCK_SIZE] = dc_Q[iGlobal + dc_agents];
+			COPY_STATE_TO_SHARED(threadIdx.x, iGlobal);
+
+//			s_s[threadIdx.x] = dc_s[iGlobal];
+//			s_s[threadIdx.x + BLOCK_SIZE] = dc_s[iGlobal + dc_agents];
+//			s_s[threadIdx.x + 2*BLOCK_SIZE] = dc_s[iGlobal + 2*dc_agents];
+//			s_s[threadIdx.x + 3*BLOCK_SIZE] = dc_s[iGlobal + 3*dc_agents];
+//			s_act[threadIdx.x] = dc_action[iGlobal];
+//			s_seeds[threadIdx.x] = dc_seeds[iGlobal];
+//			s_seeds[threadIdx.x + BLOCK_SIZE] = dc_seeds[iGlobal + dc_agents];
+//			s_seeds[threadIdx.x + 2*BLOCK_SIZE] = dc_seeds[iGlobal + 2*dc_agents];
+//			s_seeds[threadIdx.x + 3*BLOCK_SIZE] = dc_seeds[iGlobal + 3*dc_agents];
+//			s_Q[threadIdx.x] = dc_Q[iGlobal];
+//			s_Q[threadIdx.x + BLOCK_SIZE] = dc_Q[iGlobal + dc_agents];
 			
 			dc_action[iGlobal] = best_action(dc_s + iGlobal, dc_theta + iGlobal, dc_Q + iGlobal,
 																		dc_agents, dc_num_actions);
@@ -1013,17 +1045,18 @@ __global__ void pole_kernel(float *results)
 			results[iGlobal + iTest * dc_agents] = num_failures;
 			
 			// restore agent state
-			dc_s[iGlobal] = s_s[threadIdx.x];
-			dc_s[iGlobal + dc_agents] = s_s[threadIdx.x + BLOCK_SIZE];
-			dc_s[iGlobal + 2*dc_agents] = s_s[threadIdx.x + 2*BLOCK_SIZE];
-			dc_s[iGlobal + 3*dc_agents] = s_s[threadIdx.x + 3*BLOCK_SIZE];
-			dc_action[iGlobal] = s_act[threadIdx.x];
-			dc_seeds[iGlobal] = s_seeds[threadIdx.x];
-			dc_seeds[iGlobal + dc_agents] = s_seeds[threadIdx.x + BLOCK_SIZE];
-			dc_seeds[iGlobal + 2*dc_agents] = s_seeds[threadIdx.x + 2*BLOCK_SIZE];
-			dc_seeds[iGlobal + 3*dc_agents] = s_seeds[threadIdx.x + 3*BLOCK_SIZE];
-			dc_Q[iGlobal] = s_Q[threadIdx.x];
-			dc_Q[iGlobal + dc_agents] = s_Q[threadIdx.x + BLOCK_SIZE];
+			COPY_STATE_TO_GLOBAL(threadIdx.x, iGlobal);
+//			dc_s[iGlobal] = s_s[threadIdx.x];
+//			dc_s[iGlobal + dc_agents] = s_s[threadIdx.x + BLOCK_SIZE];
+//			dc_s[iGlobal + 2*dc_agents] = s_s[threadIdx.x + 2*BLOCK_SIZE];
+//			dc_s[iGlobal + 3*dc_agents] = s_s[threadIdx.x + 3*BLOCK_SIZE];
+//			dc_action[iGlobal] = s_act[threadIdx.x];
+//			dc_seeds[iGlobal] = s_seeds[threadIdx.x];
+//			dc_seeds[iGlobal + dc_agents] = s_seeds[threadIdx.x + BLOCK_SIZE];
+//			dc_seeds[iGlobal + 2*dc_agents] = s_seeds[threadIdx.x + 2*BLOCK_SIZE];
+//			dc_seeds[iGlobal + 3*dc_agents] = s_seeds[threadIdx.x + 3*BLOCK_SIZE];
+//			dc_Q[iGlobal] = s_Q[threadIdx.x];
+//			dc_Q[iGlobal + dc_agents] = s_Q[threadIdx.x + BLOCK_SIZE];
 		}
 		if (t == dc_end_time) break;
 		
