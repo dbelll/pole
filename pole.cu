@@ -1251,7 +1251,6 @@ void run_GPU(RESULTS *r)
 	CREATE_TIMER(&timer);
 	START_TIMER(timer);
 	
-	printf("_p.num_tests is %d\n", _p.num_tests);
 	for (int i = 0; i < max(1, _p.num_tests); i++) {
 #ifdef VERBOSE
 		printf("[%6d] About to run pole_clear_trace_kernel ... ", i);

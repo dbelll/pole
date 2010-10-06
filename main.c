@@ -61,7 +61,7 @@ PARAMS read_params(int argc, const char **argv)
 	p.sharing_interval = GET_PARAM("SHARING_INTERVAL", 4);
 	
 	// Total time steps must be an integer number of sharing intervals
-	if (p.agent_group_size > 1 && 0 != p.time_steps % p.sharing_interval){
+	if (p.agent_group_size > 1 && 0 != (p.time_steps % p.sharing_interval)){
 		printf("Inconsistent arguments: TIME_STEPS=%d, SHARING_INTERVAL=%d\n", 
 			   p.time_steps, p.sharing_interval);
 		exit(1);
@@ -87,7 +87,7 @@ PARAMS read_params(int argc, const char **argv)
 	p.num_actions = NUM_ACTIONS;
 	
 	p.test_interval = GET_PARAM("TEST_INTERVAL", p.time_steps);
-	if (p.test_interval > p.time_steps || 0 != (p.time_steps / p.test_interval)) {
+	if (p.test_interval > p.time_steps || 0 != (p.time_steps % p.test_interval)) {
 		printf("Inconsistent arguments: TIME_STEPS=%d, TEST_INTERVAL=%d\n", p.time_steps, 
 																			   p.test_interval);
 	}
