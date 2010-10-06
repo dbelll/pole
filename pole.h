@@ -21,13 +21,11 @@
 #define RAND_WGT_MIN -1.0f
 #define RAND_WGT_MAX 1.0f
 
-#define DIVS 3
-
 // parameters of the problem and tiling of state space
 // see Brownlee. The pole balancing problem: a benchmark control theory problem. hdl.handle.net (2005)
 #define ANGLE_MAX .209f
 #define ANGLE_MIN (-ANGLE_MAX)
-#define ANGLE_DIV DIVS
+#define ANGLE_DIV 3
 
 #define ANGLE_VEL_MAX .05f
 #define ANGLE_VEL_MIN (-ANGLE_VEL_MAX)
@@ -35,7 +33,7 @@
 
 #define X_MAX 2.400f
 #define X_MIN (-X_MAX)
-#define X_DIV DIVS
+#define X_DIV 3
 
 #define X_VEL_MAX .5f
 #define X_VEL_MIN (-X_VEL_MAX)
@@ -74,25 +72,30 @@ typedef struct {
 	unsigned agent_group_size;
 
 	unsigned sharing_interval;		// SHARING_INTERVAL command-line parameter
-	unsigned block_sharing;
 
-	unsigned agents;			// total number of agents = agents per group * number of trials
-	unsigned num_sharing_intervals;
+	unsigned agents;			// calculated total number of agents
+	unsigned num_sharing_intervals;	// calculated number of sharing intervals
+
 	float epsilon;				// exploration factor
 	float gamma;				// discount factor
 	float lambda;				// eligibility trace decay factor
 	float alpha;				// learning rate
+	
+	unsigned divs_x;			// number of divisions of x-value for determining features
+	unsigned divs_dx;			// number of divisions of x velocity
+	unsigned divs_alpha;		// number of divisions of alpha
+	unsigned divs_dalpha;		// number of divisions of alpha velocity
 
-//	unsigned blocks;			// number of blocks with BLOCK_SIZE agents in each block
 	unsigned run_on_CPU;		// flag indicating to run on CPU
 	unsigned run_on_GPU;		// flag indicating to run on GPU
 	unsigned no_print;			// flag to suppress print-out
-	unsigned num_features;
-	unsigned num_actions;		//
-	unsigned state_size;		// a state is this number of floats.
+
+	unsigned num_features;		// calculated, product of all the divs_* values
+	unsigned num_actions;		// hard coded parameter = 2
+	unsigned state_size;		// hard coded parameter = 4
 	unsigned test_interval;		// number of time steps between testing
 	unsigned test_reps;			// number of reps in each test
-	unsigned num_tests;			// = time_steps / test_interval
+	unsigned num_tests;			// calculated = time_steps / test_interval
 } PARAMS;
 
 typedef struct{
