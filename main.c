@@ -87,6 +87,10 @@ PARAMS read_params(int argc, const char **argv)
 	p.num_actions = NUM_ACTIONS;
 	
 	p.test_interval = GET_PARAM("TEST_INTERVAL", p.time_steps);
+	if (p.test_interval > p.time_steps || 0 != (p.time_steps / p.test_interval)) {
+		printf("Inconsistent arguments: TIME_STEPS=%d, TEST_INTERVAL=%d\n", p.time_steps, 
+																			   p.test_interval);
+	}
 	p.test_reps = GET_PARAM("TEST_REPS", p.test_interval);
 	p.num_tests = p.time_steps / p.test_interval;
 	

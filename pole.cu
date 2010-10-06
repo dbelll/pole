@@ -484,6 +484,8 @@ void dump_agent(AGENT_DATA *ag, unsigned agent)
 	unsigned feature = feature_for_state(ag->s + agent, _p.agents);
 	printf("%9.6f %9.6f %9.6f %9.6f %9.6f %9.6f %7d(%4x)\n", ag->s[agent], ag->s[agent + _p.agents], ag->s[agent + 2*_p.agents], ag->s[agent + 3*_p.agents], ag->Q[agent], ag->Q[agent + _p.agents],
 		feature, divs_for_feature(feature));
+
+	printf("chosen action is %d\n", ag->action[agent]);
 	
 	printf("ACTION  Q-value\n");
 //		printf("number of actions is %d\n", p.num_actions);
@@ -655,10 +657,8 @@ float run_test(AGENT_DATA *ag)
 				++num_failures;
 				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
 			}
-			// choose action with epsilon = 0.0
+			// choose best action
 			ag->action[agent] = best_action(ag->s + agent, ag->theta + agent, ag->Q + agent, _p.agents, _p.num_actions);
-//			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, 0.0f, 
-//									_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
 		}
 		
 		// restore agent state
@@ -902,9 +902,9 @@ void free_agentsCPU(AGENT_DATA *ag)
 		if (ag->seeds) free(ag->seeds);
 		if (ag->theta) free(ag->theta);
 		if (ag->e) free(ag->e);
-		if (ag->ep_data) free(ag->ep_data);
 		if (ag->s) free(ag->s);
 		if (ag->Q) free(ag->Q);
+		if (ag->action) free(ag->action);
 		free(ag);
 	}
 }
@@ -912,15 +912,15 @@ void free_agentsCPU(AGENT_DATA *ag)
 #pragma mark -
 #pragma mark GPU
 
-AGENT_DATA *copy_GPU_agents(AGENT_DATA *agGPU)
+AGENT_DATA *copy_GPU_agents()
 {
 	AGENT_DATA *agGPUcopy = (AGENT_DATA *)malloc(sizeof(AGENT_DATA));
-	agGPUcopy->seeds = host_copyui(agGPU->seeds, _p.agents * 4);
-	agGPUcopy->theta = host_copyf(agGPU->theta, _p.agents * _p.num_features * _p.num_actions);
-	agGPUcopy->e = host_copyf(agGPU->e, _p.agents * _p.num_features * _p.num_actions);
-	agGPUcopy->s = host_copyf(agGPU->s, _p.agents * _p.state_size);
-	agGPUcopy->Q = host_copyf(agGPU->Q, _p.agents * _p.num_actions);
-	agGPUcopy->action = host_copyui(agGPU->action, _p.agents);
+	agGPUcopy->seeds = host_copyui(d_seeds, _p.agents * 4);
+	agGPUcopy->theta = host_copyf(d_theta, _p.agents * _p.num_features * _p.num_actions);
+	agGPUcopy->e = host_copyf(d_e, _p.agents * _p.num_features * _p.num_actions);
+	agGPUcopy->s = host_copyf(d_s, _p.agents * _p.state_size);
+	agGPUcopy->Q = host_copyf(d_Q, _p.agents * _p.num_actions);
+	agGPUcopy->action = host_copyui(d_action, _p.agents);
 	return agGPUcopy;
 }
 
@@ -977,9 +977,9 @@ void check_agents(AGENT_DATA *agGPUcopy)
 	}
 }
 
-void dump_agents_GPU(const char *str, AGENT_DATA *agGPU, unsigned check)
+void dump_agents_GPU(const char *str, unsigned check)
 {
-	AGENT_DATA *agGPUcopy = copy_GPU_agents(agGPU);
+	AGENT_DATA *agGPUcopy = copy_GPU_agents();
 	if (check) check_agents(agGPUcopy);
 	dump_agents(str, agGPUcopy);
 	free_agentsCPU(agGPUcopy);
@@ -998,7 +998,7 @@ void initialize_agentsGPU(AGENT_DATA *agCPU)
 #ifdef VERBOSE
 	printf("initializing agents on GPU...\n");
 #endif
-	unsigned *d_seeds = device_copyui(agCPU->seeds, _p.agents * 4);
+	d_seeds = device_copyui(agCPU->seeds, _p.agents * 4);
 	d_theta = device_copyf(agCPU->theta, _p.agents * _p.num_features * _p.num_actions);
 	d_e = device_copyf(agCPU->e, _p.agents * _p.num_features * _p.num_actions);
 	d_s = device_copyf(agCPU->s, _p.agents * _p.state_size);
@@ -1123,6 +1123,91 @@ __global__ void pole_kernel(float *results)
 	COPY_STATE_TO_GLOBAL(idx, iGlobal);
 }
 
+/*
+	set all eligibility trace values to 0.0f
+*/
+__global__ void pole_clear_trace_kernel()
+{
+	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
+	if (iGlobal < dc_agents * dc_num_features * dc_num_actions) dc_e[iGlobal] = 0.0f;
+}
+
+/*
+	Do a learning session for specified number of steps.
+	On entry, the theta values are valid from prior learning episodes.
+	e values should all be set to 0
+	
+		First, randomize the state,
+		Then repeat the learning process for specified number of iterations
+	
+	Ending state is not saved.
+*/
+__global__ void pole_learn_kernel(unsigned steps, unsigned first_time)
+{
+	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
+	unsigned idx = threadIdx.x;
+	if (iGlobal >= dc_agents) return;
+	
+	__shared__ float s_s[4 * BLOCK_SIZE];
+	__shared__ unsigned s_action[BLOCK_SIZE];
+	__shared__ unsigned s_seeds[4 * BLOCK_SIZE];
+	__shared__ float s_Q[2*BLOCK_SIZE];
+
+	COPY_STATE_TO_SHARED(idx, iGlobal);
+	
+	// randomize state, determine first action and update eligibility trace
+//	randomize_state(s_s + idx, s_seeds + idx, BLOCK_SIZE);
+	s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, s_seeds + idx);
+	update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal);
+
+	// loop through specified number of time steps
+	for (int t = 0; t < steps; t++) {		
+		float reward = take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
+		unsigned fail = terminal_state(s_s + idx, BLOCK_SIZE);
+		if (fail) randomize_state(s_s + idx, s_seeds + idx, BLOCK_SIZE);			
+		float Q_a = s_Q[idx + s_action[idx] * BLOCK_SIZE];
+		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, s_seeds + idx);
+		float Q_a_prime = s_Q[idx + s_action[idx] * BLOCK_SIZE];
+		float delta = reward - Q_a + (fail ? 0 : dc_gamma * Q_a_prime);
+		update_thetasGPU(dc_theta + iGlobal, dc_e + iGlobal, delta);
+		if (fail) reset_traceGPU(dc_e + iGlobal);
+		update_stored_QGPU(s_Q + idx, s_s + idx, dc_theta + iGlobal);
+		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal);
+	}
+	COPY_STATE_TO_GLOBAL(idx, iGlobal);
+}
+
+__global__ void pole_test_kernel(float *results)
+{
+	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
+	unsigned idx = threadIdx.x;
+	if (iGlobal >= dc_agents) return;
+	
+	__shared__ float s_s[4 * BLOCK_SIZE];
+	__shared__ unsigned s_action[BLOCK_SIZE];
+	__shared__ unsigned s_seeds[4 * BLOCK_SIZE];
+	__shared__ float s_Q[2*BLOCK_SIZE];
+	
+	COPY_STATE_TO_SHARED(idx, iGlobal);
+	
+//	s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx);
+
+	// run the test using shared memory
+	unsigned num_failures = 0;
+	for (int t = 0; t < dc_test_reps; t++) {
+		take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
+		if (terminal_state(s_s + idx, BLOCK_SIZE)) {
+			++num_failures;
+			randomize_state(s_s + idx, s_seeds + idx, BLOCK_SIZE);
+		}
+		s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx);
+	}
+	results[iGlobal] = num_failures;
+	
+	// restore agent state
+//	COPY_STATE_TO_GLOBAL(idx, iGlobal);
+}
+
 void run_GPU(RESULTS *r)
 {
 #ifdef VERBOSE
@@ -1149,25 +1234,54 @@ void run_GPU(RESULTS *r)
 		gridDim.y = 1 + (gridDim.x-1) / 65535;
 		gridDim.x = 1 + (gridDim.x-1) / gridDim.y;
 	}
+	
+	dim3 clearTraceBlockDim(512);
+	dim3 clearTraceGridDim(1 + (_p.agents * _p.num_features * _p.num_actions - 1) / 512);
+	if (clearTraceGridDim.x > 65535) {
+		clearTraceGridDim.y = 1 + (clearTraceGridDim.x-1) / 65535;
+		clearTraceGridDim.x = 1 + (clearTraceGridDim.x-1) / clearTraceGridDim.y;
+	}
 #ifdef VERBOSE
 	printf("%d total agents\n", _p.agents);
 	printf("%d threads per block, (%d x %d) grid of blocks\n", blockDim.x, gridDim.x, gridDim.y);
+	printf("for clearing trace: %d threads per block, (%d x %d) grid of blocks\n", 
+						clearTraceBlockDim.x, clearTraceGridDim.x, clearTraceGridDim.y);
 #endif
 	unsigned timer;
 	CREATE_TIMER(&timer);
 	START_TIMER(timer);
 	
-	for (int i = 0; i < 1 + (_p.time_steps - 1)/ MAX_TIME_STEPS_PER_LAUNCH; i++) {
-		set_start_end_times(i * MAX_TIME_STEPS_PER_LAUNCH, min(_p.time_steps, 
-																(i+1)*MAX_TIME_STEPS_PER_LAUNCH));
-		pole_kernel<<<gridDim, blockDim>>>(d_results);
-		cudaThreadSynchronize();
-//		dump_agents_GPU("---- Agent state ----\n", ag, 0);
+	printf("_p.num_tests is %d\n", _p.num_tests);
+	for (int i = 0; i < max(1, _p.num_tests); i++) {
+#ifdef VERBOSE
+		printf("[%6d] About to run pole_clear_trace_kernel ... ", i);
+#endif
+		pole_clear_trace_kernel<<<clearTraceGridDim, clearTraceBlockDim>>>();
+	CUT_CHECK_ERROR("pole_clear_trace_kernel execution failed");
+#ifdef VERBOSE
+		printf("done.\n");
+		printf("         About to run pole_learn_kernel for %d steps ... ", _p.test_interval);
+#endif
+		pole_learn_kernel<<<gridDim, blockDim>>>(_p.test_interval, i==0);
+	CUT_CHECK_ERROR("pole_learn_kernel execution failed");
+#ifdef VERBOSE
+		printf("done.\n");
+#endif
+
+#ifdef VERBOSE
+		printf("         About to run pole_test_kernel (test #%d) ... ", i);
+#endif
+		pole_test_kernel<<<gridDim, blockDim>>>(d_results + i * _p.agents);
+		CUT_CHECK_ERROR("pole_test_kernel execution failed");
+#ifdef VERBOSE
+		printf("done.\n");
+#endif
 	}
+	cudaThreadSynchronize();
 	STOP_TIMER(timer, "run pole kernel on GPU");
 	
-	// Check if kernel execution generated an error
-	CUT_CHECK_ERROR("Kernel execution failed");
+//	// Check if kernel execution generated an error
+//	CUT_CHECK_ERROR("Kernel execution failed");
 	
 	START_TIMER(timer);
 	// reduce the result array on the device and copy back to the host
@@ -1181,7 +1295,7 @@ void run_GPU(RESULTS *r)
 	STOP_TIMER(timer, "reduce GPU results and copy data back to host");
 	
 #ifdef DUMP_TERMINAL_AGENT_STATE
-//	dump_agents_GPU("--------------------------------------\n       Ending Agent States\n", ag, 0);
+	dump_agents_GPU("--------------------------------------\n       Ending Agent States\n", 0);
 #endif
 
 	if (d_results) cudaFree(d_results);
