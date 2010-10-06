@@ -1,0 +1,24 @@
+
+
+[POLE][TRIALS   1024][TIME_STEPS 131072][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_INTERVAL  16384][TEST_REPS  16384][DIVS  3  2  3  2]
+   14989.292 ms for run pole kernel on GPU
+       2.073 ms for reduce GPU results and copy data back to host
+GPU: 
+    TEST  Avg Fails
+   [   0]  13.1670
+   [   1]   5.3848
+   [   2]   3.9521
+   [   3]   3.1143
+   [   4]   2.6777
+   [   5]   2.3350
+   [   6]   2.2188
+   [   7]   1.7500
+
+33% occupancy for pole_kernel 64% coherent loads
+
+Optimization Log:
+
+Set -maxrregcount=16 in Makefile: time = 16.816 sec
+
+
+

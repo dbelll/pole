@@ -61,7 +61,7 @@ EXECUTABLE	:= pole
 CUFILES		:= pole.cu cuda_utils.cu cuda_row_reduction.cu
 
 # CUDA dependency files
-CU_DEPS		:= pole.h main.h cuda_utils.h cuda_row_reduction.h
+CU_DEPS		:= pole.h main.h cuda_utils.h cuda_row_reduction.h Makefile
 
 # C/C++ source files (compiled with gcc / c++)
 CCFILES		:=  main.c
@@ -71,7 +71,7 @@ CCFILES		:=  main.c
 
 # compiler flags
 #CUDACCFLAGS = --profile
-CUDACCFLAGS = --use_fast_math --ptxas-options=-v -maxrregcount=16
+CUDACCFLAGS = --use_fast_math --ptxas-options=-v #-maxrregcount=16
 ################################################################################
 # Rules and targets
 verbose ?= 1
