@@ -14,6 +14,7 @@ GPU:
    [   6]   2.2188
    [   7]   1.7500
 
+33% occupancy for pole_kernel 64% coherent loads
 
 Optimization Log:
 
