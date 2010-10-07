@@ -112,11 +112,22 @@ __host__ __device__ float random_interval(unsigned *seeds, unsigned stride, floa
 __host__ __device__ void randomize_state(float *s, unsigned *seeds, unsigned stride)
 {
 	s[0] = random_interval(seeds, stride, ANGLE_MAX);
-//	s[stride] = random_interval(seeds, stride, ANGLE_VEL_MAX);
-	s[stride] = 0.0f;
+	s[stride] = random_interval(seeds, stride, ANGLE_VEL_MAX/4.0f);
+//	s[stride] = 0.0f;
 	s[2*stride] = random_interval(seeds, stride, X_MAX);
-//	s[3*stride] = random_interval(seeds, stride, X_VEL_MAX);
-	s[3*stride] = 0.0f;
+	s[3*stride] = random_interval(seeds, stride, X_VEL_MAX/4.0f);
+//	s[3*stride] = 0.0f;
+}
+
+// assumed stride for state is BLOCK_SIZE and for seeds is dc_agents
+__device__ void randomize_stateGPU(float *s, unsigned *seeds)
+{
+	s[0] = random_interval(seeds, dc_agents, ANGLE_MAX);
+	s[BLOCK_SIZE] = random_interval(seeds, dc_agents, ANGLE_VEL_MAX/4.0f);
+//	s[stride] = 0.0f;
+	s[2*BLOCK_SIZE] = random_interval(seeds, dc_agents, X_MAX);
+	s[3*BLOCK_SIZE] = random_interval(seeds, dc_agents, X_VEL_MAX/4.0f);
+//	s[3*stride] = 0.0f;
 }
 
 // reset eligibility traces to 0.0f
@@ -284,10 +295,10 @@ __device__ __host__ float calc_Q(float *s, unsigned a, float *theta, unsigned st
 	Calculate the Q value for a given state/action on GPU
 	Stride is assumed to be BLOCK_SIZE for s and a and dc_agents for theta
 */
-__device__ float calc_QGPU(float *s, unsigned a, float *theta)
+__device__ float calc_QGPU(float *s, unsigned a, float *theta, unsigned feature)
 {
 	// only one feature corresponds with any given state
-	unsigned feature = feature_for_state(s, BLOCK_SIZE);
+//	unsigned feature = feature_for_state(s, BLOCK_SIZE);
 	float Q = theta[(a + feature * dc_num_actions) * dc_agents];
 	return Q;
 }
@@ -300,10 +311,10 @@ __device__ __host__ void update_stored_Q(float *Q, float *s, float *theta, unsig
 	}
 }
 
-__device__ void update_stored_QGPU(float *Q, float *s, float *theta)
+__device__ void update_stored_QGPU(float *Q, float *s, float *theta, unsigned feature)
 {
 	for (int a = 0; a < dc_num_actions; a++) {
-		Q[a * BLOCK_SIZE] = calc_QGPU(s, a, theta);
+		Q[a * BLOCK_SIZE] = calc_QGPU(s, a, theta, feature);
 	}
 }
 
@@ -331,15 +342,15 @@ __device__ __host__ unsigned best_action(float *s, float *theta, float *Q, unsig
 	Choose the best action on the GPU
 	Strides are assumed to be BLOCK_SIZE for s and Q and dc_agents for theta
 */
-__device__ unsigned best_actionGPU(float *s, float *theta, float *Q)
+__device__ unsigned best_actionGPU(float *s, float *theta, float *Q, unsigned feature)
 {
 	// calculate the Q value for each action
-	Q[0] = calc_QGPU(s, 0, theta);
+	Q[0] = calc_QGPU(s, 0, theta, feature);
 	unsigned best_action = 0;
 	float bestQ = Q[0];
 
 	for (int a = 1; a < dc_num_actions; a++) {
-		Q[a * BLOCK_SIZE] = calc_QGPU(s, a, theta);
+		Q[a * BLOCK_SIZE] = calc_QGPU(s, a, theta, feature);
 		if (Q[a * BLOCK_SIZE] > bestQ) {
 			bestQ = Q[a * BLOCK_SIZE];
 			best_action = a;
@@ -366,13 +377,13 @@ __device__ __host__ unsigned choose_action(float *s, float *theta, float epsilon
 	choose action on GPU
 	strides are assumed to be BLOCK_SIZE for s, Q, and seeds and dc_agents theta
 */
-__device__ unsigned choose_actionGPU(float *s, float *theta, float *Q, unsigned *seeds)
+__device__ unsigned choose_actionGPU(float *s, float *theta, float *Q, unsigned *seeds, unsigned feature)
 {
 	// always calcualte the best action and store all the Q values for each action
-	unsigned a = best_actionGPU(s, theta, Q);
-	if (dc_epsilon > 0.0f && RandUniform(seeds, BLOCK_SIZE) < dc_epsilon){
+	unsigned a = best_actionGPU(s, theta, Q, feature);
+	if (dc_epsilon > 0.0f && RandUniform(seeds, dc_agents) < dc_epsilon){
 		// choose random action
-		float r = RandUniform(seeds, BLOCK_SIZE);
+		float r = RandUniform(seeds, dc_agents);
 		a = r * dc_num_actions;
 	}
 	return a;
@@ -403,9 +414,9 @@ __host__ __device__ void update_trace(unsigned action, float *s, float *e, unsig
 	Update the eligibility trace values on the GPU
 	Stride is assumed to be BLOCK_SIZE for s and dc_agents for e
 */
-__device__ void update_traceGPU(unsigned action, float *s, float *e)
+__device__ void update_traceGPU(unsigned action, float *s, float *e, unsigned feature)
 {
-	unsigned feature = feature_for_state(s, BLOCK_SIZE);
+//	unsigned feature = feature_for_state(s, BLOCK_SIZE);
 	for (int f = 0; f < dc_num_features; f++) {
 		for (int a = 0; a < dc_num_actions; a++) {
 			unsigned index = (a + f * dc_num_actions) * dc_agents;
@@ -484,6 +495,8 @@ void dump_agent(AGENT_DATA *ag, unsigned agent)
 	unsigned feature = feature_for_state(ag->s + agent, _p.agents);
 	printf("%9.6f %9.6f %9.6f %9.6f %9.6f %9.6f %7d(%4x)\n", ag->s[agent], ag->s[agent + _p.agents], ag->s[agent + 2*_p.agents], ag->s[agent + 3*_p.agents], ag->Q[agent], ag->Q[agent + _p.agents],
 		feature, divs_for_feature(feature));
+
+	printf("chosen action is %d\n", ag->action[agent]);
 	
 	printf("ACTION  Q-value\n");
 //		printf("number of actions is %d\n", p.num_actions);
@@ -631,19 +644,19 @@ float run_test(AGENT_DATA *ag)
 //		unsigned old_num_failures = num_failures;
 		
 		// save agent state prior to testing
-		float s0 = ag->s[agent];
-		float s1 = ag->s[agent + _p.agents];
-		float s2 = ag->s[agent + 2*_p.agents];
-		float s3 = ag->s[agent + 3*_p.agents];
-		unsigned act = ag->action[agent];
-		unsigned seed0 = ag->seeds[agent];
-		unsigned seed1 = ag->seeds[agent + _p.agents];
-		unsigned seed2 = ag->seeds[agent + 2 * _p.agents];
-		unsigned seed3 = ag->seeds[agent + 3 * _p.agents];
-		float Q0 = ag->Q[agent];
-		float Q1 = ag->Q[agent + _p.agents];
+//		float s0 = ag->s[agent];
+//		float s1 = ag->s[agent + _p.agents];
+//		float s2 = ag->s[agent + 2*_p.agents];
+//		float s3 = ag->s[agent + 3*_p.agents];
+//		unsigned act = ag->action[agent];
+//		unsigned seed0 = ag->seeds[agent];
+//		unsigned seed1 = ag->seeds[agent + _p.agents];
+//		unsigned seed2 = ag->seeds[agent + 2 * _p.agents];
+//		unsigned seed3 = ag->seeds[agent + 3 * _p.agents];
+//		float Q0 = ag->Q[agent];
+//		float Q1 = ag->Q[agent + _p.agents];
 		
-//		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
 		ag->action[agent] = best_action(ag->s + agent, ag->theta + agent, ag->Q + agent, _p.agents, _p.num_actions);
 //		choose_action(ag->s + agent, ag->theta + agent, 0.0f, _p.agents, ag->Q + agent, 
 //																_p.num_actions, ag->seeds + agent);
@@ -655,24 +668,22 @@ float run_test(AGENT_DATA *ag)
 				++num_failures;
 				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
 			}
-			// choose action with epsilon = 0.0
+			// choose best action
 			ag->action[agent] = best_action(ag->s + agent, ag->theta + agent, ag->Q + agent, _p.agents, _p.num_actions);
-//			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, 0.0f, 
-//									_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
 		}
 		
 		// restore agent state
-		ag->s[agent] = s0;
-		ag->s[agent + _p.agents] = s1;
-		ag->s[agent + 2*_p.agents] = s2;
-		ag->s[agent + 3*_p.agents] = s3;
-		act = ag->action[agent] = act;
-		ag->seeds[agent] = seed0;
-		ag->seeds[agent + _p.agents] = seed1;
-		ag->seeds[agent + 2 * _p.agents] = seed2;
-		ag->seeds[agent + 3 * _p.agents] = seed3;
-		ag->Q[agent] = Q0;
-		ag->Q[agent + _p.agents] = Q1;
+//		ag->s[agent] = s0;
+//		ag->s[agent + _p.agents] = s1;
+//		ag->s[agent + 2*_p.agents] = s2;
+//		ag->s[agent + 3*_p.agents] = s3;
+//		act = ag->action[agent] = act;
+//		ag->seeds[agent] = seed0;
+//		ag->seeds[agent + _p.agents] = seed1;
+//		ag->seeds[agent + 2 * _p.agents] = seed2;
+//		ag->seeds[agent + 3 * _p.agents] = seed3;
+//		ag->Q[agent] = Q0;
+//		ag->Q[agent + _p.agents] = Q1;
 		
 //		printf("after testing...\n");
 //		dump_agent(ag, agent);
@@ -683,6 +694,44 @@ float run_test(AGENT_DATA *ag)
 
 
 	return num_failures / (float)_p.agents;
+}
+
+void clear_traces(AGENT_DATA *ag)
+{
+	for (int i = 0; i < _p.agents * _p.num_features * _p.num_actions; i++) {
+		ag->e[i] = 0.0f;
+	}
+}
+
+void learning_session(AGENT_DATA *ag)
+{
+	for (int agent = 0; agent < _p.agents; agent++) {
+		// randomize the state for all agents
+		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+		ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon, _p.agents,
+										ag->Q + agent, _p.num_actions, ag->seeds + agent);
+		update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
+												_p.num_actions, _p.agents, _p.gamma, _p.lambda);
+												
+		// loop over the time steps in the learning interval
+		for (int t = 0; t < _p.test_interval; t++) {
+			float reward = take_action(ag->action[agent], ag->s + agent, ag->s + agent, _p.agents);
+			unsigned fail = terminal_state(ag->s + agent, _p.agents);
+			if (fail) randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+			float Q_a = ag->Q[agent + ag->action[agent] * _p.agents];
+			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon,
+								_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
+			float Q_a_prime = ag->Q[agent + ag->action[agent] * _p.agents];
+			float delta = reward - Q_a + (fail ? 0 : _p.gamma * Q_a_prime);
+			update_thetas(ag->theta + agent, ag->e + agent, _p.alpha, delta, _p.num_features,
+																	 _p.agents, _p.num_actions);
+			if (fail) reset_trace(ag->e + agent, _p.num_features, _p.num_actions, _p.agents);
+			update_stored_Q(ag->Q + agent, ag->s + agent, ag->theta + agent, _p.agents, 
+																				_p.num_actions);
+			update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
+												_p.num_actions, _p.agents, _p.gamma, _p.lambda);
+		}
+	}
 }
 
 void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
@@ -697,25 +746,28 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 
 	// on entry the agent's theta, eligibility trace, and state values have been initialized
 	
-#ifdef DUMP_AGENT_ACTIONS
-		printf("-----------------------------------------------------------\n");
-		printf("---------------------- INITIAL SETUP ----------------------\n");
-		printf("-----------------------------------------------------------\n");
-#endif
-
-	// set-up agents to begin the loop by choosing the first action and updating traces
-	for (int agent = 0; agent < _p.agents; agent++) {
-		ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon, _p.agents,
-										ag->Q + agent, _p.num_actions, ag->seeds + agent);
-
-#ifdef DUMP_AGENT_ACTIONS
-		printf("agent %d will choose action %d from state ", agent, ag->action[agent]);
-		dump_state(ag->s + agent, _p.agents);
-#endif
-
-		update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
-												_p.num_actions, _p.agents, _p.gamma, _p.lambda);		
-	}
+//#ifdef DUMP_AGENT_ACTIONS
+//		printf("-----------------------------------------------------------\n");
+//		printf("---------------------- INITIAL SETUP ----------------------\n");
+//		printf("-----------------------------------------------------------\n");
+//#endif
+//
+//	// set-up agents to begin the loop by choosing the first action and updating traces
+//	for (int agent = 0; agent < _p.agents; agent++) {
+//	
+//		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+//	
+//		ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon, _p.agents,
+//										ag->Q + agent, _p.num_actions, ag->seeds + agent);
+//
+//#ifdef DUMP_AGENT_ACTIONS
+//		printf("agent %d will choose action %d from state ", agent, ag->action[agent]);
+//		dump_state(ag->s + agent, _p.agents);
+//#endif
+//
+//		update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
+//												_p.num_actions, _p.agents, _p.gamma, _p.lambda);		
+//	}
 
 #ifdef DUMP_AGENT_ACTIONS
 	printf("----------------------------------------------------\n");
@@ -724,143 +776,164 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 #endif	
 
 	int k = 1;
-	if (_p.time_steps > 40) {
-		k = 1 + (_p.time_steps-1)/40;
+	if (_p.num_tests > 40) {
+		k = 1 + (_p.num_tests-1)/40;
 	}
 	
-	for (int i = 0; i < (_p.time_steps / k); i++) {
+	for (int i = 0; i < (_p.num_tests / k); i++) {
 		printf("-");
 	}
 	printf("|\n");
 
+	// main loop, repeat for the number of learning sessions
+	for (int i = 0; i < _p.num_tests; i++) {
+		if (0 == (i+1) % k) { printf("."); fflush(NULL); }
 
-	// main loop, repeat for the number of trials
-	for (int t = 0; t <= _p.time_steps; t++) {
-		if (0 == (t+1) % k) {
-			printf(".");
-			fflush(NULL);
-		}
-
-		if (0 == (t % _p.test_interval) && (t > 0)) {
-			// run the test and store the result
-			unsigned iTest = (t-1) / _p.test_interval;
-			r->avg_fail[iTest] = run_test(ag);
-//			printf("*********[%3d] test results =%7.2f\n", iTest, r->avg_fail[iTest]);
-		}
-		if (t == _p.time_steps) break;
-
-#ifdef DUMP_AGENT_ACTIONS
-	printf("\n------------------ TIME STEP%3d ------------------------\n", t);
-#endif	
-
-		for (int agent = 0; agent < _p.agents; agent++) {
-
-			// stored state is s      stored Q's are Q(s)  
-			
-#ifdef DUMP_AGENT_ACTIONS
-			printf("<<<<<<<< AGENT %d >>>>>>>>>>>>\n", agent);
-			printf("time step %d, agent %d ready for next action\n", t, agent);
-			dump_agent(ag, agent);
-#endif
-			// take the action already chosen and saved in ag->action
-			unsigned prev_feature = feature_for_state(ag->s, _p.agents);
-			float reward = take_action(ag->action[agent], ag->s + agent, ag->s + agent, _p.agents);
-
-#ifdef DUMP_AGENT_BRIEF
-			(agent == 0) ? printf("[step%4d]", t) : printf("          ");
-			printf("[agent%3d] took action:%2d, got reward:%6.3f, new state is ", agent, ag->action[agent], reward);
-			dump_state(ag->s + agent, _p.agents);
-#endif
-			
-			// stored state is s_prime      stored Q's are Q(s)
-			unsigned fail = terminal_state(ag->s + agent, _p.agents);
-			if (fail){
-#ifdef DUMP_FAILURE_TIMES
-				printf("Agent%4d Failure at %d taking action %d from state %d (%x) resulting in %s\n", agent, t, ag->action[agent], prev_feature, divs_for_feature(prev_feature), failure_type(ag->s + agent, _p.agents));
-#endif
-#ifdef DUMP_AGENT_STATE_ON_FAILURE
-				printf("session initial state was angle=%6.2f,  angleV=%6.2f, x=%6.2f, xV=%6.2f\n",
-						orig_a, orig_aV, orig_x, orig_xV);
-				dump_agent(ag, agent);
-#endif
-				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
-				
-//				if (agent == 0){
-//					orig_a = ag->s[0];
-//					orig_aV = ag->s[_p.agents];
-//					orig_x = ag->s[2*_p.agents];
-//					orig_xV = ag->s[3*_p.agents];
-//				}
-				++tot_fails;
-			}
-						
-
-			float Q_a = ag->Q[agent + ag->action[agent] * _p.agents];
-
-#ifdef DUMP_AGENT_ACTIONS
-			if (fail) printf("-------------------------------------------------------\n!!!! terminal state reached, next state is random\n---------------------------------------------------\n\n");
-			printf("agent %d, took action %d, got reward %6.3f, now in state s_prime = " , agent,	ag->action[agent], reward);
-			dump_state(ag->s + agent, _p.agents);
-#endif
-
-#ifdef DUMP_CALCULATIONS
-			printf("reward is %9.6f, Q[%d] for state s is %9.6f\n", reward, ag->action[agent], Q_a);
-#endif
-
-//			ag->prev_action[agent] = ag->action[agent];
-//			ag->f_prev_state[agent] = feature_for_state(ag->s + agent, _p.agents);
-			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon,
-								_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
-			
-			// Stored Q values are now based on the new state, s_prime
-
-#ifdef DUMP_AGENT_ACTIONS
-			printf("agent %d's next action will be %d with Q-value %9.6f\n", agent, ag->action[agent], ag->Q[agent + ag->action[agent] * _p.agents]);
-//			dump_state(ag->s + agent, _p.agents);
-#endif
-
-			float Q_a_prime = ag->Q[agent + ag->action[agent] * _p.agents];
-			float delta = reward - Q_a + (fail ? 0 : _p.gamma * Q_a_prime);
-
-#ifdef DUMP_CALCULATIONS
-			printf("discount is %9.6f, newQ[%d] is %9.6f, so delta is %9.6f\n", _p.gamma, 
-												ag->action[agent], (fail ? 0.0f : Q_a_prime), delta);
-#endif
-
-#ifdef DUMP_AGENT_ACTIONS
-			printf("[update_theta]:\n");
-#endif
-
-			update_thetas(ag->theta + agent, ag->e + agent, _p.alpha, delta, _p.num_features,
-																	 _p.agents, _p.num_actions);
-			if (fail) reset_trace(ag->e + agent, _p.num_features, _p.num_actions, _p.agents);
-
-			update_stored_Q(ag->Q + agent, ag->s + agent, ag->theta + agent, _p.agents, 
-																				_p.num_actions);
-			
-#ifdef DUMP_AGENT_ACTIONS
-			printf("[update_trace]\n");
-#endif
-
-			update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, _p.num_actions, _p.agents, _p.gamma, _p.lambda);
-			
-#ifdef DUMP_AGENT_ACTIONS
-//			printf("agent state after updating theta and eligibility trace:\n");
-//			dump_agent(ag, agent);
-#endif
-		}
-
-#ifdef DUMP_INTERMEDIATE_FAIL_COUNTS
-		if (0 == (1+t) % _p.test_interval) {
-			printf("intermediate fail count =%7.2f\n", (tot_fails - prev_tot_fails)/(float)_p.trials);
-			prev_tot_fails = tot_fails;
-		}
-#endif
-
-
+		clear_traces(ag);
+		learning_session(ag);
+		r->avg_fail[i] = run_test(ag);
 	}
 	
-//	printf("*********[%3d] test results =%7.2f\n", _p.time_steps / _p.test_interval, run_test(ag));
+//	for (int t = 0; t <= _p.time_steps; t++) {
+//		if (0 == (t+1) % k) {
+//			printf(".");
+//			fflush(NULL);
+//		}
+//
+//		if (0 == (t % _p.test_interval) && (t > 0)) {
+//			// run the test and store the result
+//
+////			unsigned iTest = (t-1) / _p.test_interval;
+////			r->avg_fail[iTest] = run_test(ag);
+//
+//			// randomize new starting state for continued learning
+//			printf("randomizing agent states at time step %d\n", t);
+//			for (int agent = 0; agent < dc_agents; agent++) {
+//				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+//				ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon, _p.agents,
+//												ag->Q + agent, _p.num_actions, ag->seeds + agent);
+//				update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
+//														_p.num_actions, _p.agents, _p.gamma, _p.lambda);		
+//			}
+//		}
+//		if (t == _p.time_steps) break;
+//
+//#ifdef DUMP_AGENT_ACTIONS
+//	printf("\n------------------ TIME STEP%3d ------------------------\n", t);
+//#endif	
+//
+//		for (int agent = 0; agent < _p.agents; agent++) {
+//
+//			// randomize state for next learning segment
+//			if (0 == (t%_p.test_interval) && (t>0)) {
+//			}
+//
+//			// stored state is s      stored Q's are Q(s)  
+//			
+//#ifdef DUMP_AGENT_ACTIONS
+//			printf("<<<<<<<< AGENT %d >>>>>>>>>>>>\n", agent);
+//			printf("time step %d, agent %d ready for next action\n", t, agent);
+//			dump_agent(ag, agent);
+//#endif
+//			// take the action already chosen and saved in ag->action
+//			unsigned prev_feature = feature_for_state(ag->s, _p.agents);
+//			float reward = take_action(ag->action[agent], ag->s + agent, ag->s + agent, _p.agents);
+//
+//#ifdef DUMP_AGENT_BRIEF
+//			(agent == 0) ? printf("[step%4d]", t) : printf("          ");
+//			printf("[agent%3d] took action:%2d, got reward:%6.3f, new state is ", agent, ag->action[agent], reward);
+//			dump_state(ag->s + agent, _p.agents);
+//#endif
+//			
+//			// stored state is s_prime      stored Q's are Q(s)
+//			unsigned fail = terminal_state(ag->s + agent, _p.agents);
+//			if (fail){
+//#ifdef DUMP_FAILURE_TIMES
+//				printf("Agent%4d Failure at %d taking action %d from state %d (%x) resulting in %s\n", agent, t, ag->action[agent], prev_feature, divs_for_feature(prev_feature), failure_type(ag->s + agent, _p.agents));
+//#endif
+//#ifdef DUMP_AGENT_STATE_ON_FAILURE
+//				printf("session initial state was angle=%6.2f,  angleV=%6.2f, x=%6.2f, xV=%6.2f\n",
+//						orig_a, orig_aV, orig_x, orig_xV);
+//				dump_agent(ag, agent);
+//#endif
+//				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+//				
+////				if (agent == 0){
+////					orig_a = ag->s[0];
+////					orig_aV = ag->s[_p.agents];
+////					orig_x = ag->s[2*_p.agents];
+////					orig_xV = ag->s[3*_p.agents];
+////				}
+//				++tot_fails;
+//			}
+//						
+//
+//			float Q_a = ag->Q[agent + ag->action[agent] * _p.agents];
+//
+//#ifdef DUMP_AGENT_ACTIONS
+//			if (fail) printf("-------------------------------------------------------\n!!!! terminal state reached, next state is random\n---------------------------------------------------\n\n");
+//			printf("agent %d, took action %d, got reward %6.3f, now in state s_prime = " , agent,	ag->action[agent], reward);
+//			dump_state(ag->s + agent, _p.agents);
+//#endif
+//
+//#ifdef DUMP_CALCULATIONS
+//			printf("reward is %9.6f, Q[%d] for state s is %9.6f\n", reward, ag->action[agent], Q_a);
+//#endif
+//
+////			ag->prev_action[agent] = ag->action[agent];
+////			ag->f_prev_state[agent] = feature_for_state(ag->s + agent, _p.agents);
+//			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon,
+//								_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
+//			
+//			// Stored Q values are now based on the new state, s_prime
+//
+//#ifdef DUMP_AGENT_ACTIONS
+//			printf("agent %d's next action will be %d with Q-value %9.6f\n", agent, ag->action[agent], ag->Q[agent + ag->action[agent] * _p.agents]);
+////			dump_state(ag->s + agent, _p.agents);
+//#endif
+//
+//			float Q_a_prime = ag->Q[agent + ag->action[agent] * _p.agents];
+//			float delta = reward - Q_a + (fail ? 0 : _p.gamma * Q_a_prime);
+//
+//#ifdef DUMP_CALCULATIONS
+//			printf("discount is %9.6f, newQ[%d] is %9.6f, so delta is %9.6f\n", _p.gamma, 
+//												ag->action[agent], (fail ? 0.0f : Q_a_prime), delta);
+//#endif
+//
+//#ifdef DUMP_AGENT_ACTIONS
+//			printf("[update_theta]:\n");
+//#endif
+//
+//			update_thetas(ag->theta + agent, ag->e + agent, _p.alpha, delta, _p.num_features,
+//																	 _p.agents, _p.num_actions);
+//			if (fail) reset_trace(ag->e + agent, _p.num_features, _p.num_actions, _p.agents);
+//
+//			update_stored_Q(ag->Q + agent, ag->s + agent, ag->theta + agent, _p.agents, 
+//																				_p.num_actions);
+//			
+//#ifdef DUMP_AGENT_ACTIONS
+//			printf("[update_trace]\n");
+//#endif
+//
+//			update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, _p.num_actions, _p.agents, _p.gamma, _p.lambda);
+//			
+//#ifdef DUMP_AGENT_ACTIONS
+////			printf("agent state after updating theta and eligibility trace:\n");
+////			dump_agent(ag, agent);
+//#endif
+//		}
+//
+//#ifdef DUMP_INTERMEDIATE_FAIL_COUNTS
+//		if (0 == (1+t) % _p.test_interval) {
+//			printf("intermediate fail count =%7.2f\n", (tot_fails - prev_tot_fails)/(float)_p.trials);
+//			prev_tot_fails = tot_fails;
+//		}
+//#endif
+//
+//
+//	}
+//	
+////	printf("*********[%3d] test results =%7.2f\n", _p.time_steps / _p.test_interval, run_test(ag));
 
 #ifdef DUMP_TERMINAL_AGENT_STATE
 	printf("\n----------------------------------------------\n");
@@ -902,9 +975,9 @@ void free_agentsCPU(AGENT_DATA *ag)
 		if (ag->seeds) free(ag->seeds);
 		if (ag->theta) free(ag->theta);
 		if (ag->e) free(ag->e);
-		if (ag->ep_data) free(ag->ep_data);
 		if (ag->s) free(ag->s);
 		if (ag->Q) free(ag->Q);
+		if (ag->action) free(ag->action);
 		free(ag);
 	}
 }
@@ -912,15 +985,15 @@ void free_agentsCPU(AGENT_DATA *ag)
 #pragma mark -
 #pragma mark GPU
 
-AGENT_DATA *copy_GPU_agents(AGENT_DATA *agGPU)
+AGENT_DATA *copy_GPU_agents()
 {
 	AGENT_DATA *agGPUcopy = (AGENT_DATA *)malloc(sizeof(AGENT_DATA));
-	agGPUcopy->seeds = host_copyui(agGPU->seeds, _p.agents * 4);
-	agGPUcopy->theta = host_copyf(agGPU->theta, _p.agents * _p.num_features * _p.num_actions);
-	agGPUcopy->e = host_copyf(agGPU->e, _p.agents * _p.num_features * _p.num_actions);
-	agGPUcopy->s = host_copyf(agGPU->s, _p.agents * _p.state_size);
-	agGPUcopy->Q = host_copyf(agGPU->Q, _p.agents * _p.num_actions);
-	agGPUcopy->action = host_copyui(agGPU->action, _p.agents);
+	agGPUcopy->seeds = host_copyui(d_seeds, _p.agents * 4);
+	agGPUcopy->theta = host_copyf(d_theta, _p.agents * _p.num_features * _p.num_actions);
+	agGPUcopy->e = host_copyf(d_e, _p.agents * _p.num_features * _p.num_actions);
+	agGPUcopy->s = host_copyf(d_s, _p.agents * _p.state_size);
+	agGPUcopy->Q = host_copyf(d_Q, _p.agents * _p.num_actions);
+	agGPUcopy->action = host_copyui(d_action, _p.agents);
 	return agGPUcopy;
 }
 
@@ -977,9 +1050,9 @@ void check_agents(AGENT_DATA *agGPUcopy)
 	}
 }
 
-void dump_agents_GPU(const char *str, AGENT_DATA *agGPU, unsigned check)
+void dump_agents_GPU(const char *str, unsigned check)
 {
-	AGENT_DATA *agGPUcopy = copy_GPU_agents(agGPU);
+	AGENT_DATA *agGPUcopy = copy_GPU_agents();
 	if (check) check_agents(agGPUcopy);
 	dump_agents(str, agGPUcopy);
 	free_agentsCPU(agGPUcopy);
@@ -998,7 +1071,7 @@ void initialize_agentsGPU(AGENT_DATA *agCPU)
 #ifdef VERBOSE
 	printf("initializing agents on GPU...\n");
 #endif
-	unsigned *d_seeds = device_copyui(agCPU->seeds, _p.agents * 4);
+	d_seeds = device_copyui(agCPU->seeds, _p.agents * 4);
 	d_theta = device_copyf(agCPU->theta, _p.agents * _p.num_features * _p.num_actions);
 	d_e = device_copyf(agCPU->e, _p.agents * _p.num_features * _p.num_actions);
 	d_s = device_copyf(agCPU->s, _p.agents * _p.state_size);
@@ -1037,10 +1110,6 @@ void free_agentsGPU()
 			s_s[iLocal + 2*BLOCK_SIZE] = dc_s[iGlobal + 2*dc_agents];			\
 			s_s[iLocal + 3*BLOCK_SIZE] = dc_s[iGlobal + 3*dc_agents];			\
 			s_action[iLocal] = dc_action[iGlobal];									\
-			s_seeds[iLocal] = dc_seeds[iGlobal];								\
-			s_seeds[iLocal + BLOCK_SIZE] = dc_seeds[iGlobal + dc_agents];		\
-			s_seeds[iLocal + 2*BLOCK_SIZE] = dc_seeds[iGlobal + 2*dc_agents];	\
-			s_seeds[iLocal + 3*BLOCK_SIZE] = dc_seeds[iGlobal + 3*dc_agents];	\
 			s_Q[iLocal] = dc_Q[iGlobal];										\
 			s_Q[iLocal + BLOCK_SIZE] = dc_Q[iGlobal + dc_agents];
 			
@@ -1050,76 +1119,163 @@ void free_agentsGPU()
 			dc_s[iGlobal + 2*dc_agents] = s_s[iLocal + 2*BLOCK_SIZE];			\
 			dc_s[iGlobal + 3*dc_agents] = s_s[iLocal + 3*BLOCK_SIZE];			\
 			dc_action[iGlobal] = s_action[iLocal];									\
-			dc_seeds[iGlobal] = s_seeds[iLocal];								\
-			dc_seeds[iGlobal + dc_agents] = s_seeds[iLocal + BLOCK_SIZE];		\
-			dc_seeds[iGlobal + 2*dc_agents] = s_seeds[iLocal + 2*BLOCK_SIZE];	\
-			dc_seeds[iGlobal + 3*dc_agents] = s_seeds[iLocal + 3*BLOCK_SIZE];	\
 			dc_Q[iGlobal] = s_Q[iLocal];										\
 			dc_Q[iGlobal + dc_agents] = s_Q[iLocal + BLOCK_SIZE];
 
-__global__ void pole_kernel(float *results)
+//__global__ void pole_kernel(float *results)
+//{
+//	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
+//	unsigned idx = threadIdx.x;
+//	
+//	__shared__ float s_s[4 * BLOCK_SIZE];
+//	__shared__ unsigned s_action[BLOCK_SIZE];
+//	__shared__ unsigned s_seeds[4 * BLOCK_SIZE];
+//	__shared__ float s_Q[2*BLOCK_SIZE];
+//	
+//	COPY_STATE_TO_SHARED(idx, iGlobal);
+//	
+//	// prepare for first iteration by chosing first action and updating the trace
+//	if (dc_start_time == 0) {
+////		dc_action[iGlobal] = choose_actionGPU(dc_s + iGlobal, dc_theta + iGlobal, dc_Q + iGlobal,
+////																				 dc_seeds + iGlobal);
+////		update_trace(dc_action[iGlobal], dc_s + iGlobal, dc_e + iGlobal, dc_num_features, 
+////													dc_num_actions, dc_agents, dc_gamma, dc_lambda);
+//		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, s_seeds + idx);
+//		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal);
+//	}
+//	
+//	for (int t = dc_start_time; t <= dc_end_time; t++) {
+//		
+//		// run the test
+//		if (0 == (t % dc_test_interval) && (t > dc_start_time)){
+//			// run the test and record the results
+//
+//			// save state to back to global memory
+//			COPY_STATE_TO_GLOBAL(idx, iGlobal);
+//	
+//			s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx);
+//
+//			// run the test using shared memory
+//			unsigned num_failures = 0;
+//			for (int tt = 0; tt < dc_test_reps; tt++) {
+//				take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
+//				if (terminal_state(s_s + idx, BLOCK_SIZE)) {
+//					++num_failures;
+//					randomize_state(s_s + idx, s_seeds + idx, BLOCK_SIZE);
+//				}
+//				s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx);
+//			}
+//			unsigned iTest = (t-1) / dc_test_interval;
+//			results[iGlobal + iTest * dc_agents] = num_failures;
+//			
+//			// restore agent state
+//			COPY_STATE_TO_SHARED(idx, iGlobal);
+//		}
+//		if (t == dc_end_time) break;
+//		
+//		float reward = take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
+//		unsigned fail = terminal_state(s_s + idx, BLOCK_SIZE);
+//		if (fail) randomize_state(s_s + idx, s_seeds + idx, BLOCK_SIZE);			
+//		float Q_a = s_Q[idx + s_action[idx] * BLOCK_SIZE];
+//		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, s_seeds + idx);
+//		float Q_a_prime = s_Q[idx + s_action[idx] * BLOCK_SIZE];
+//		float delta = reward - Q_a + (fail ? 0 : dc_gamma * Q_a_prime);
+//		update_thetasGPU(dc_theta + iGlobal, dc_e + iGlobal, delta);
+//		if (fail) reset_traceGPU(dc_e + iGlobal);
+//		update_stored_QGPU(s_Q + idx, s_s + idx, dc_theta + iGlobal);
+//		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal);
+//	}
+//	COPY_STATE_TO_GLOBAL(idx, iGlobal);
+//}
+
+/*
+	set all eligibility trace values to 0.0f
+*/
+__global__ void pole_clear_trace_kernel()
+{
+	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
+	if (iGlobal < dc_agents * dc_num_features * dc_num_actions) dc_e[iGlobal] = 0.0f;
+}
+
+/*
+	Do a learning session for specified number of steps.
+	On entry, the theta values are valid from prior learning episodes.
+	e values should all be set to 0
+	
+		First, randomize the state,
+		Then repeat the learning process for specified number of iterations
+	
+	Ending state is not saved.
+*/
+__global__ void pole_learn_kernel(unsigned steps, unsigned first_time)
 {
 	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
 	unsigned idx = threadIdx.x;
+	if (iGlobal >= dc_agents) return;
 	
 	__shared__ float s_s[4 * BLOCK_SIZE];
 	__shared__ unsigned s_action[BLOCK_SIZE];
-	__shared__ unsigned s_seeds[4 * BLOCK_SIZE];
+//	__shared__ unsigned s_seeds[4 * BLOCK_SIZE];
 	__shared__ float s_Q[2*BLOCK_SIZE];
-	
-	COPY_STATE_TO_SHARED(idx, iGlobal);
-	
-	// prepare for first iteration by chosing first action and updating the trace
-	if (dc_start_time == 0) {
-//		dc_action[iGlobal] = choose_actionGPU(dc_s + iGlobal, dc_theta + iGlobal, dc_Q + iGlobal,
-//																				 dc_seeds + iGlobal);
-//		update_trace(dc_action[iGlobal], dc_s + iGlobal, dc_e + iGlobal, dc_num_features, 
-//													dc_num_actions, dc_agents, dc_gamma, dc_lambda);
-		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, s_seeds + idx);
-		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal);
-	}
-	
-	for (int t = dc_start_time; t <= dc_end_time; t++) {
-		
-		// run the test
-		if (0 == (t % dc_test_interval) && (t > dc_start_time)){
-			// run the test and record the results
 
-			// save state to back to global memory
-			COPY_STATE_TO_GLOBAL(idx, iGlobal);
+//	COPY_STATE_TO_SHARED(idx, iGlobal);
 	
-			s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx);
+	// randomize state, determine first action and update eligibility trace
+	randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
+	unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
+	s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, dc_seeds + iGlobal, feature);
+	update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
 
-			// run the test using shared memory
-			unsigned num_failures = 0;
-			for (int tt = 0; tt < dc_test_reps; tt++) {
-				take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
-				if (terminal_state(s_s + idx, BLOCK_SIZE)) {
-					++num_failures;
-					randomize_state(s_s + idx, s_seeds + idx, BLOCK_SIZE);
-				}
-				s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx);
-			}
-			unsigned iTest = (t-1) / dc_test_interval;
-			results[iGlobal + iTest * dc_agents] = num_failures;
-			
-			// restore agent state
-			COPY_STATE_TO_SHARED(idx, iGlobal);
-		}
-		if (t == dc_end_time) break;
-		
+	// loop through specified number of time steps
+	for (int t = 0; t < steps; t++) {		
 		float reward = take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
 		unsigned fail = terminal_state(s_s + idx, BLOCK_SIZE);
-		if (fail) randomize_state(s_s + idx, s_seeds + idx, BLOCK_SIZE);			
+		if (fail) randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
+		unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
 		float Q_a = s_Q[idx + s_action[idx] * BLOCK_SIZE];
-		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, s_seeds + idx);
+		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, dc_seeds + iGlobal, feature);
 		float Q_a_prime = s_Q[idx + s_action[idx] * BLOCK_SIZE];
 		float delta = reward - Q_a + (fail ? 0 : dc_gamma * Q_a_prime);
 		update_thetasGPU(dc_theta + iGlobal, dc_e + iGlobal, delta);
 		if (fail) reset_traceGPU(dc_e + iGlobal);
-		update_stored_QGPU(s_Q + idx, s_s + idx, dc_theta + iGlobal);
-		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal);
+		update_stored_QGPU(s_Q + idx, s_s + idx, dc_theta + iGlobal, feature);
+		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
 	}
+	COPY_STATE_TO_GLOBAL(idx, iGlobal);
+}
+
+__global__ void pole_test_kernel(float *results)
+{
+	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
+	unsigned idx = threadIdx.x;
+	if (iGlobal >= dc_agents) return;
+	
+	__shared__ float s_s[4 * BLOCK_SIZE];
+	__shared__ unsigned s_action[BLOCK_SIZE];
+//	__shared__ unsigned s_seeds[4 * BLOCK_SIZE];
+	__shared__ float s_Q[2*BLOCK_SIZE];
+	
+//	COPY_STATE_TO_SHARED(idx, iGlobal);
+	
+	randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
+	unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
+	s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, feature);
+//	update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
+
+	// run the test using shared memory
+	unsigned num_failures = 0;
+	for (int t = 0; t < dc_test_reps; t++) {
+		take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
+		if (terminal_state(s_s + idx, BLOCK_SIZE)) {
+			++num_failures;
+			randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
+		}
+		unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
+		s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, feature);
+	}
+	results[iGlobal] = num_failures;
+	
+	// restore agent state
 	COPY_STATE_TO_GLOBAL(idx, iGlobal);
 }
 
@@ -1149,25 +1305,37 @@ void run_GPU(RESULTS *r)
 		gridDim.y = 1 + (gridDim.x-1) / 65535;
 		gridDim.x = 1 + (gridDim.x-1) / gridDim.y;
 	}
+	
+	dim3 clearTraceBlockDim(512);
+	dim3 clearTraceGridDim(1 + (_p.agents * _p.num_features * _p.num_actions - 1) / 512);
+	if (clearTraceGridDim.x > 65535) {
+		clearTraceGridDim.y = 1 + (clearTraceGridDim.x-1) / 65535;
+		clearTraceGridDim.x = 1 + (clearTraceGridDim.x-1) / clearTraceGridDim.y;
+	}
 #ifdef VERBOSE
 	printf("%d total agents\n", _p.agents);
 	printf("%d threads per block, (%d x %d) grid of blocks\n", blockDim.x, gridDim.x, gridDim.y);
+	printf("for clearing trace: %d threads per block, (%d x %d) grid of blocks\n", 
+						clearTraceBlockDim.x, clearTraceGridDim.x, clearTraceGridDim.y);
 #endif
 	unsigned timer;
 	CREATE_TIMER(&timer);
 	START_TIMER(timer);
 	
-	for (int i = 0; i < 1 + (_p.time_steps - 1)/ MAX_TIME_STEPS_PER_LAUNCH; i++) {
-		set_start_end_times(i * MAX_TIME_STEPS_PER_LAUNCH, min(_p.time_steps, 
-																(i+1)*MAX_TIME_STEPS_PER_LAUNCH));
-		pole_kernel<<<gridDim, blockDim>>>(d_results);
-		cudaThreadSynchronize();
-//		dump_agents_GPU("---- Agent state ----\n", ag, 0);
+//	printf("_p.num_tests = %d\n", _p.num_tests);
+	for (int i = 0; i < _p.num_tests; i++) {
+		pole_clear_trace_kernel<<<clearTraceGridDim, clearTraceBlockDim>>>();
+		CUT_CHECK_ERROR("pole_clear_trace_kernel execution failed");
+		pole_learn_kernel<<<gridDim, blockDim>>>(_p.test_interval, i==0);
+		CUT_CHECK_ERROR("pole_learn_kernel execution failed");
+		pole_test_kernel<<<gridDim, blockDim>>>(d_results + i * _p.agents);
+		CUT_CHECK_ERROR("pole_test_kernel execution failed");
 	}
+	cudaThreadSynchronize();
 	STOP_TIMER(timer, "run pole kernel on GPU");
 	
-	// Check if kernel execution generated an error
-	CUT_CHECK_ERROR("Kernel execution failed");
+//	// Check if kernel execution generated an error
+//	CUT_CHECK_ERROR("Kernel execution failed");
 	
 	START_TIMER(timer);
 	// reduce the result array on the device and copy back to the host
@@ -1181,7 +1349,7 @@ void run_GPU(RESULTS *r)
 	STOP_TIMER(timer, "reduce GPU results and copy data back to host");
 	
 #ifdef DUMP_TERMINAL_AGENT_STATE
-//	dump_agents_GPU("--------------------------------------\n       Ending Agent States\n", ag, 0);
+	dump_agents_GPU("--------------------------------------\n       Ending Agent States\n", 0);
 #endif
 
 	if (d_results) cudaFree(d_results);
