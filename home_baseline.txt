@@ -1,45 +1,125 @@
-With shared memory usage per OPT branch:
+27 registers (33% occupancy)
 
-[POLE][TRIALS   1024][TIME_STEPS 131072][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_INTERVAL  16384][TEST_REPS  16384][DIVS  3  2  3  2]
-   14989.292 ms for run pole kernel on GPU
-       2.073 ms for reduce GPU results and copy data back to host
+
+[POLE][TRIALS   1024][TIME_STEPS  65536][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_INTERVAL   2048][TEST_REPS  16384][DIVS  3  2  3  2]
+    8341.239 ms for run pole kernel on GPU
+       1.445 ms for reduce GPU results and copy data back to host
 GPU: 
     TEST  Avg Fails
-   [   0]  13.1670
-   [   1]   5.3848
-   [   2]   3.9521
-   [   3]   3.1143
-   [   4]   2.6777
-   [   5]   2.3350
-   [   6]   2.2188
-   [   7]   1.7500
+   [   0]  74.7402
+   [   1]  59.9316
+   [   2]  40.2471
+   [   3]  29.5225
+   [   4]  24.1602
+   [   5]  21.0732
+   [   6]  17.9316
+   [   7]  16.5771
+   [   8]  16.2158
+   [   9]  15.0430
+   [  10]  13.8799
+   [  11]  13.3242
+   [  12]  12.1562
+   [  13]  11.2354
+   [  14]  10.8857
+   [  15]  11.3838
+   [  16]  10.6240
+   [  17]  10.0508
+   [  18]  10.3525
+   [  19]  10.3330
+   [  20]   9.4229
+   [  21]   9.0049
+   [  22]   8.9570
+   [  23]   8.8984
+   [  24]   8.4922
+   [  25]   8.0420
+   [  26]   8.2656
+   [  27]   8.0928
+   [  28]   8.5713
+   [  29]   8.7217
+   [  30]   8.0020
+   [  31]   8.2041
 
-33% occupancy for pole_kernel 64% coherent loads
 
+----------------------------------------------------------------------------------
+20 registers (50% occupancy)
 
-Optimization Log:
-
-Set -maxrregcount=16 in Makefile: time = 16.816 sec
-
-
-
-#--------------------------------------
-resonance
-
-[POLE][TRIALS   1024][TIME_STEPS 131072][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_INTERVAL  16384][TEST_REPS  16384][DIVS  3  2  3  2]
-   16391.744 ms for run pole kernel on GPU
-       0.179 ms for reduce GPU results and copy data back to host
+[POLE][TRIALS   1024][TIME_STEPS  65536][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_INTERVAL   2048][TEST_REPS  16384][DIVS  3  2  3  2]
+    8511.208 ms for run pole kernel on GPU
+       1.379 ms for reduce GPU results and copy data back to host
 GPU: 
     TEST  Avg Fails
-   [   0]  13.1670
-   [   1]   5.3848
-   [   2]   3.9521
-   [   3]   3.1143
-   [   4]   2.6777
-   [   5]   2.3350
-   [   6]   2.2188
-   [   7]   1.7500
+   [   0]  74.7402
+   [   1]  59.9316
+   [   2]  40.2471
+   [   3]  29.5225
+   [   4]  24.1602
+   [   5]  21.0732
+   [   6]  17.9316
+   [   7]  16.5771
+   [   8]  16.2158
+   [   9]  15.0430
+   [  10]  13.8799
+   [  11]  13.3242
+   [  12]  12.1562
+   [  13]  11.2354
+   [  14]  10.8857
+   [  15]  11.3838
+   [  16]  10.6240
+   [  17]  10.0508
+   [  18]  10.3525
+   [  19]  10.3330
+   [  20]   9.4229
+   [  21]   9.0049
+   [  22]   8.9570
+   [  23]   8.8984
+   [  24]   8.4922
+   [  25]   8.0420
+   [  26]   8.2656
+   [  27]   8.0928
+   [  28]   8.5713
+   [  29]   8.7217
+   [  30]   8.0020
+   [  31]   8.2041
 
--maxrregcount=16 is worse
 
-BLOCK_SIZE=256 is
+----------------------------------------------------------------------------------
+16 registers (67% occupancy)
+
+[POLE][TRIALS   1024][TIME_STEPS  65536][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_INTERVAL   2048][TEST_REPS  16384][DIVS  3  2  3  2]
+    9870.923 ms for run pole kernel on GPU
+       1.244 ms for reduce GPU results and copy data back to host
+GPU: 
+    TEST  Avg Fails
+   [   0]  74.7402
+   [   1]  59.9316
+   [   2]  40.2471
+   [   3]  29.5225
+   [   4]  24.1602
+   [   5]  21.0732
+   [   6]  17.9316
+   [   7]  16.5771
+   [   8]  16.2158
+   [   9]  15.0430
+   [  10]  13.8799
+   [  11]  13.3242
+   [  12]  12.1562
+   [  13]  11.2354
+   [  14]  10.8857
+   [  15]  11.3838
+   [  16]  10.6240
+   [  17]  10.0508
+   [  18]  10.3525
+   [  19]  10.3330
+   [  20]   9.4229
+   [  21]   9.0049
+   [  22]   8.9570
+   [  23]   8.8984
+   [  24]   8.4922
+   [  25]   8.0420
+   [  26]   8.2656
+   [  27]   8.0928
+   [  28]   8.5713
+   [  29]   8.7217
+   [  30]   8.0020
+   [  31]   8.2041
+

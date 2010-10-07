@@ -76,7 +76,7 @@ PARAMS read_params(int argc, const char **argv)
 	p.divs_x = GET_PARAM("DIVS_X", X_DIV);
 	p.divs_dx = GET_PARAM("DIVS_DX", X_VEL_DIV);
 	p.divs_alpha = GET_PARAM("DIVS_ALPHA", ANGLE_DIV);
-	p.divs_dalpha = GET_PARAM("DIVS_X", ANGLE_VEL_DIV);
+	p.divs_dalpha = GET_PARAM("DIVS_DALPHA", ANGLE_VEL_DIV);
 	p.num_features = p.divs_x * p.divs_dx * p.divs_alpha * p.divs_dalpha;
 	
 	p.run_on_CPU = GET_PARAM("RUN_ON_CPU", 1);
@@ -90,6 +90,7 @@ PARAMS read_params(int argc, const char **argv)
 	if (p.test_interval > p.time_steps || 0 != (p.time_steps % p.test_interval)) {
 		printf("Inconsistent arguments: TIME_STEPS=%d, TEST_INTERVAL=%d\n", p.time_steps, 
 																			   p.test_interval);
+		exit(1);
 	}
 	p.test_reps = GET_PARAM("TEST_REPS", p.test_interval);
 	p.num_tests = p.time_steps / p.test_interval;
