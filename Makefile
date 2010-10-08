@@ -71,7 +71,7 @@ CCFILES		:=  main.c
 
 # compiler flags
 #CUDACCFLAGS = --profile
-CUDACCFLAGS = --use_fast_math --ptxas-options=-v #-maxrregcount=16
+CUDACCFLAGS = --use_fast_math --ptxas-options=-v -maxrregcount=16
 ################################################################################
 # Rules and targets
 verbose ?= 1

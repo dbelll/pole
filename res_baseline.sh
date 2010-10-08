@@ -1,5 +1,6 @@
 #!/bin/bash
-# Testing script for home computer
+# Baseline script for res computer
+#
 _trials="--TRIALS=4096"
 _time="--TIME_STEPS=131072"
 _groups="--AGENT_GROUP_SIZE=1"
