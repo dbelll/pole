@@ -854,22 +854,32 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 #endif	
 
 	int k = 1;
-	if (_p.num_tests > 40) {
-		k = 1 + (_p.num_tests-1)/40;
+	if (_p.num_restarts > 40) {
+		k = 1 + (_p.num_restarts-1)/40;
 	}
 	
-	for (int i = 0; i < (_p.num_tests / k); i++) {
+	for (int i = 0; i < (_p.num_restarts / k); i++) {
 		printf("-");
 	}
 	printf("|\n");
 
 	// main loop, repeat for the number of learning sessions
-	for (int i = 0; i < _p.num_tests; i++) {
+//	for (int i = 0; i < _p.num_tests; i++) {
+//		if (0 == (i+1) % k) { printf("."); fflush(NULL); }
+//
+//		clear_traces(ag);
+//		learning_session(ag);
+//		r->avg_fail[i] = run_test(ag);
+//	}
+	for (int i = 0; i < _p.num_restarts; i++) {
 		if (0 == (i+1) % k) { printf("."); fflush(NULL); }
 
 		clear_traces(ag);
 		learning_session(ag);
-		r->avg_fail[i] = run_test(ag);
+		
+		if (0 == ((i+1)%_p.restarts_per_test)) {
+			r->avg_fail[i/_p.restarts_per_test] = run_test(ag);
+		}
 	}
 	
 //	for (int t = 0; t <= _p.time_steps; t++) {
@@ -1345,13 +1355,18 @@ void run_GPU(RESULTS *r)
 	START_TIMER(timer);
 	
 //	printf("_p.num_tests = %d\n", _p.num_tests);
-	for (int i = 0; i < _p.num_tests; i++) {
+	for (int i = 0; i < _p.num_restarts; i++) {
+//		printf("restart pole_learning_kernel...\n");
 		pole_clear_trace_kernel<<<clearTraceGridDim, clearTraceBlockDim>>>();
 		CUT_CHECK_ERROR("pole_clear_trace_kernel execution failed");
-		pole_learn_kernel<<<gridDim, blockDim>>>(_p.test_interval, i==0);
+		pole_learn_kernel<<<gridDim, blockDim>>>(_p.restart_interval, i==0);
 		CUT_CHECK_ERROR("pole_learn_kernel execution failed");
-		pole_test_kernel<<<gridDim, blockDim>>>(d_results + i * _p.agents);
-		CUT_CHECK_ERROR("pole_test_kernel execution failed");
+		
+		if (0 == ((i+1) % _p.restarts_per_test)) {
+//			printf("pole_test_kernel...\n");
+			pole_test_kernel<<<gridDim, blockDim>>>(d_results + (i / _p.restarts_per_test) * _p.agents);
+			CUT_CHECK_ERROR("pole_test_kernel execution failed");
+		}
 	}
 	cudaThreadSynchronize();
 	STOP_TIMER(timer, "run pole kernel on GPU");

@@ -1,0 +1,52 @@
+res, baseline with fast math
+
+#[POLE][TRIALS   4096][TIME_STEPS 131072][SHARING_INTERVAL      4][AGENT_GROUP_\
+SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_IN\
+TERVAL  16384][TEST_REPS  16384][DIVS  3  2  3  2]
+#   14428.359 ms for run pole kernel on GPU
+#       0.199 ms for reduce GPU results and copy data back to host
+#GPU:
+#    TEST  Avg Fails
+#   [   0]   4.0215
+#   [   1]   1.8357
+#   [   2]   1.4084
+#   [   3]   1.1995
+#   [   4]   1.0239
+#   [   5]   0.9492
+#   [   6]   0.8604
+#   [   7]   0.8591
+
+
+res, no fast-math
+
+[POLE][TRIALS   4096][TIME_STEPS 131072][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_INTERVAL  16384][TEST_REPS  16384][DIVS  3  2  3  2]
+   14857.425 ms for run pole kernel on GPU
+       0.198 ms for reduce GPU results and copy data back to host
+GPU: 
+    TEST  Avg Fails
+   [   0]   3.8772
+   [   1]   1.8870
+   [   2]   1.4961
+   [   3]   1.3044
+   [   4]   1.0979
+   [   5]   1.0071
+   [   6]   0.8887
+   [   7]   0.8523
+
+
+----------------------
+res, max reg = 16
+----------------------
+[POLE][TRIALS   4096][TIME_STEPS 131072][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_INTERVAL  16384][TEST_REPS  16384][DIVS  3  2  3  2]
+   14813.037 ms for run pole kernel on GPU
+       0.196 ms for reduce GPU results and copy data back to host
+GPU: 
+    TEST  Avg Fails
+   [   0]   4.0215
+   [   1]   1.8357
+   [   2]   1.4084
+   [   3]   1.1995
+   [   4]   1.0239
+   [   5]   0.9492
+   [   6]   0.8604
+   [   7]   0.8591

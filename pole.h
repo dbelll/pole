@@ -96,6 +96,10 @@ typedef struct {
 	unsigned test_interval;		// number of time steps between testing
 	unsigned test_reps;			// number of reps in each test
 	unsigned num_tests;			// calculated = time_steps / test_interval
+	
+	unsigned restart_interval;	// time steps between random restarts
+	unsigned num_restarts;		// calculated = time_steps / restart_interval
+	unsigned restarts_per_test;	// calculated = num_restarts / num_tests
 } PARAMS;
 
 typedef struct{

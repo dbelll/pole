@@ -16,8 +16,8 @@
 		1051E2C91220865A00BB27B0 /* notes.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notes.txt; sourceTree = "<group>"; };
 		106F8AE2125B4C6E00DD0860 /* cuda_row_reduction.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cuda_row_reduction.h; sourceTree = "<group>"; };
 		106F8AE3125B4C6E00DD0860 /* cuda_row_reduction.cu */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cuda; path = cuda_row_reduction.cu; sourceTree = "<group>"; };
-		106F8B75125B5B8500DD0860 /* junk1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = junk1; sourceTree = "<group>"; };
-		106F8B77125B5B9E00DD0860 /* junk2 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = junk2; sourceTree = "<group>"; };
+		106F8B75125B5B8500DD0860 /* home_junk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = home_junk; sourceTree = "<group>"; };
+		106F8B77125B5B9E00DD0860 /* res_junk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = res_junk; sourceTree = "<group>"; };
 		106FF7F5119EE68B000CD6C8 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		106FF80D119EE7F5000CD6C8 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		106FF828119EEF51000CD6C8 /* cuda_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cuda_utils.h; sourceTree = "<group>"; };
@@ -67,8 +67,8 @@
 			children = (
 				1051E2C91220865A00BB27B0 /* notes.txt */,
 				10AA87EF125CA5BA0089B68E /* home_baseline.txt */,
-				106F8B75125B5B8500DD0860 /* junk1 */,
-				106F8B77125B5B9E00DD0860 /* junk2 */,
+				106F8B75125B5B8500DD0860 /* home_junk */,
+				106F8B77125B5B9E00DD0860 /* res_junk */,
 				10294D9B11A1B93300AAF551 /* source */,
 				10294D9C11A1B93D00AAF551 /* other */,
 			);
