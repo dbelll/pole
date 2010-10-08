@@ -23,10 +23,13 @@ __constant__ unsigned dc_time_steps;
 __constant__ float dc_epsilon;
 __constant__ float dc_gamma;
 __constant__ float dc_lambda;
+__constant__ float dc_gammaXlambda;
 __constant__ float dc_alpha;
 
 __constant__ unsigned dc_num_actions;
+__constant__ unsigned dc_num_actionsXagents;
 __constant__ unsigned dc_num_features;
+__constant__ unsigned dc_num_featuresXactionsXagents;
 
 __constant__ unsigned dc_test_interval;
 __constant__ unsigned dc_test_reps;
@@ -68,9 +71,21 @@ void set_constant_params(PARAMS p)
 	cudaMemcpyToSymbol("dc_epsilon", &p.epsilon, sizeof(float));
 	cudaMemcpyToSymbol("dc_gamma", &p.gamma, sizeof(float));
 	cudaMemcpyToSymbol("dc_lambda", &p.lambda, sizeof(float));
+
+	float gammaXlambda = p.gamma * p.lambda;
+	cudaMemcpyToSymbol("dc_gammaXlambda", &gammaXlambda, sizeof(float));
+
 	cudaMemcpyToSymbol("dc_alpha", &p.alpha, sizeof(float));
 	cudaMemcpyToSymbol("dc_num_actions", &p.num_actions, sizeof(unsigned));
+
+	unsigned num_actionsXagents = p.num_actions * p.agents;
+	cudaMemcpyToSymbol("dc_num_actionsXagents", &num_actionsXagents, sizeof(unsigned));
+
 	cudaMemcpyToSymbol("dc_num_features", &p.num_features, sizeof(unsigned));
+
+	unsigned num_featuresXactionsXagents = p.num_features * p.num_actions * p.agents;
+	cudaMemcpyToSymbol("dc_num_featuresXactionsXagents", &num_featuresXactionsXagents, sizeof(unsigned));
+
 	cudaMemcpyToSymbol("dc_test_interval", &p.test_interval, sizeof(unsigned));
 	cudaMemcpyToSymbol("dc_test_reps", &p.test_reps, sizeof(unsigned));
 }
@@ -113,10 +128,8 @@ __host__ __device__ void randomize_state(float *s, unsigned *seeds, unsigned str
 {
 	s[0] = random_interval(seeds, stride, ANGLE_MAX);
 	s[stride] = random_interval(seeds, stride, ANGLE_VEL_MAX/4.0f);
-//	s[stride] = 0.0f;
 	s[2*stride] = random_interval(seeds, stride, X_MAX);
 	s[3*stride] = random_interval(seeds, stride, X_VEL_MAX/4.0f);
-//	s[3*stride] = 0.0f;
 }
 
 // assumed stride for state is BLOCK_SIZE and for seeds is dc_agents
@@ -124,10 +137,8 @@ __device__ void randomize_stateGPU(float *s, unsigned *seeds)
 {
 	s[0] = random_interval(seeds, dc_agents, ANGLE_MAX);
 	s[BLOCK_SIZE] = random_interval(seeds, dc_agents, ANGLE_VEL_MAX/4.0f);
-//	s[stride] = 0.0f;
 	s[2*BLOCK_SIZE] = random_interval(seeds, dc_agents, X_MAX);
 	s[3*BLOCK_SIZE] = random_interval(seeds, dc_agents, X_VEL_MAX/4.0f);
-//	s[3*stride] = 0.0f;
 }
 
 // reset eligibility traces to 0.0f
@@ -143,18 +154,19 @@ __host__ __device__ void reset_trace(float *e, unsigned num_features, unsigned n
 
 __device__ void reset_traceGPU(float *e)
 {
-	for (int f = 0; f < dc_num_features; f++) {
-		for (int a = 0; a < dc_num_actions; a++) {
-			e[(a + f * dc_num_actions) * dc_agents] = 0.0f;
+	for (int f = 0; f < dc_num_featuresXactionsXagents; f += dc_num_actionsXagents) {
+		for (int a = 0; a < dc_num_actionsXagents; a += dc_agents) {
+			e[a + f] = 0.0f;
 		}
 	}
 }
 
 __device__ __host__ unsigned terminal_state(float *s, unsigned stride)
 {
-	return s[2*stride] < X_MIN || s[2*stride] > X_MAX || 
-			s[0] < ANGLE_MIN || s[0] > ANGLE_MAX;
+	unsigned s2 = s[2*stride];
+	return s2 < X_MIN || s2 > X_MAX || s[0] < ANGLE_MIN || s[0] > ANGLE_MAX;
 }
+
 
 
 // take an action from the current state, s, returning the reward and saving the new state in s_prime
@@ -194,6 +206,46 @@ __device__ __host__ float take_action(unsigned a, float *s, float *s_prime, unsi
 	
 	return reward;
 }
+
+///*
+//	stride of s and s_prime is assumed to be BLOCK_SIZE
+//*/
+//__device__ float take_actionGPU(unsigned a, float *s, float *s_prime)
+//{
+//	// formulas are from: Brownlee. The pole balancing problem: a benchmark control theory problem. hdl.handle.net (2005)
+//	
+//	// determine force from the action
+//	float F = a ? FORCE : -FORCE;
+//
+//	float ang = s[0];
+//	float ang_vel = s[BLOCK_SIZE];
+//	float cos_a = cos(ang);
+//	float sin_a = sin(ang);
+//	
+//	// calculate angular acceleration
+//	float ang_accel = GRAV * sin_a;
+//	ang_accel += cos_a * (-F - POLE_MASS * POLE_LENGTH * ang_vel * ang_vel * sin_a) / 
+//							(CART_MASS + POLE_MASS);
+//	ang_accel /= POLE_LENGTH * (4.0f/3.0f - POLE_MASS * cos_a * cos_a / (CART_MASS + POLE_MASS));
+//	
+//	float x = s[2*BLOCK_SIZE];
+//	float x_vel = s[3*BLOCK_SIZE];
+//
+//	// calculate x acceleration
+//	float x_accel = F + POLE_MASS * POLE_LENGTH * (ang_vel * ang_vel * sin_a - ang_accel * cos_a);
+//	x_accel /= (CART_MASS + POLE_MASS);
+//	
+//	// update ang, ang_vel and x, x_vel
+//	s_prime[0] = ang + TAU * ang_vel;
+//	s_prime[BLOCK_SIZE] = ang_vel + TAU * ang_accel;
+//	s_prime[2*BLOCK_SIZE] = x + TAU * x_vel;
+//	s_prime[3*BLOCK_SIZE] = x_vel + TAU * x_accel;
+//	
+//	// determine the reward
+//	float reward = terminal_state(s_prime, BLOCK_SIZE) ? REWARD_FAIL : REWARD_NON_FAIL;
+//	
+//	return reward;
+//}
 
 //float take_action_debug(unsigned a, float *s, float *s_prime, unsigned stride)
 //{
@@ -259,6 +311,18 @@ __device__ __host__ unsigned feature_for_state(float *s, unsigned stride)
 	return feature;
 }
 
+//__device__ unsigned feature_for_stateGPU(float *s)
+//{
+//	unsigned feature = feature_val_for_state_val(s[0], ANGLE_MIN, ANGLE_MAX, ANGLE_DIV);
+//	feature += (ANGLE_DIV) * 
+//				feature_val_for_state_val(s[BLOCK_SIZE], ANGLE_VEL_MIN, ANGLE_VEL_MAX, ANGLE_VEL_DIV);
+//	feature += (ANGLE_DIV * ANGLE_VEL_DIV) * 
+//				feature_val_for_state_val(s[2 * BLOCK_SIZE], X_MIN, X_MAX, X_DIV);
+//	feature += (ANGLE_DIV * ANGLE_VEL_DIV * X_DIV) * 
+//				feature_val_for_state_val(s[3 * BLOCK_SIZE], X_VEL_MIN, X_VEL_MAX, X_VEL_DIV);
+//	return feature;
+//}
+
 __device__ __host__ const char * failure_type(float *s, unsigned stride)
 {
 	if (s[0] < ANGLE_MIN) return "Angle < MIN";
@@ -282,7 +346,7 @@ __device__ __host__ unsigned divs_for_feature(unsigned feature)
 }
 
 // calculate the Q value for an action from a state
-__device__ __host__ float calc_Q(float *s, unsigned a, float *theta, unsigned stride, 
+__host__ float calc_Q(float *s, unsigned a, float *theta, unsigned stride, 
 																			unsigned num_actions)
 {
 	// only one feature corresponds with any given state
@@ -299,11 +363,11 @@ __device__ float calc_QGPU(float *s, unsigned a, float *theta, unsigned feature)
 {
 	// only one feature corresponds with any given state
 //	unsigned feature = feature_for_state(s, BLOCK_SIZE);
-	float Q = theta[(a + feature * dc_num_actions) * dc_agents];
+	float Q = theta[(a + feature * NUM_ACTIONS) * dc_agents];
 	return Q;
 }
 
-__device__ __host__ void update_stored_Q(float *Q, float *s, float *theta, unsigned stride, 
+__host__ void update_stored_Q(float *Q, float *s, float *theta, unsigned stride, 
 																			unsigned num_actions)
 {
 	for (int a = 0; a < num_actions; a++) {
@@ -313,14 +377,14 @@ __device__ __host__ void update_stored_Q(float *Q, float *s, float *theta, unsig
 
 __device__ void update_stored_QGPU(float *Q, float *s, float *theta, unsigned feature)
 {
-	for (int a = 0; a < dc_num_actions; a++) {
+	for (int a = 0; a < NUM_ACTIONS; a++) {
 		Q[a * BLOCK_SIZE] = calc_QGPU(s, a, theta, feature);
 	}
 }
 
 // Calculate the Q value for each action from the given state, storing the values in Q
 // Return the action with the highest Q value
-__device__ __host__ unsigned best_action(float *s, float *theta, float *Q, unsigned stride,
+__host__ unsigned best_action(float *s, float *theta, float *Q, unsigned stride,
 										 unsigned num_actions)
 {
 	// calculate the Q value for each action
@@ -349,10 +413,12 @@ __device__ unsigned best_actionGPU(float *s, float *theta, float *Q, unsigned fe
 	unsigned best_action = 0;
 	float bestQ = Q[0];
 
-	for (int a = 1; a < dc_num_actions; a++) {
-		Q[a * BLOCK_SIZE] = calc_QGPU(s, a, theta, feature);
-		if (Q[a * BLOCK_SIZE] > bestQ) {
-			bestQ = Q[a * BLOCK_SIZE];
+	unsigned index = BLOCK_SIZE;
+
+	for (int a = 1; a < NUM_ACTIONS; a++, index += BLOCK_SIZE) {
+		Q[index] = calc_QGPU(s, a, theta, feature);
+		if (Q[index] > bestQ) {
+			bestQ = Q[index];
 			best_action = a;
 		}
 	}
@@ -360,7 +426,7 @@ __device__ unsigned best_actionGPU(float *s, float *theta, float *Q, unsigned fe
 }
 
 // choose action from current state, storing Q values for each possible action in Q
-__device__ __host__ unsigned choose_action(float *s, float *theta, float epsilon, unsigned stride, 
+__host__ unsigned choose_action(float *s, float *theta, float epsilon, unsigned stride, 
 											float *Q, unsigned num_actions, unsigned *seeds)
 {
 	// always calcualte the best action and store all the Q values for each action
@@ -384,16 +450,17 @@ __device__ unsigned choose_actionGPU(float *s, float *theta, float *Q, unsigned 
 	if (dc_epsilon > 0.0f && RandUniform(seeds, dc_agents) < dc_epsilon){
 		// choose random action
 		float r = RandUniform(seeds, dc_agents);
-		a = r * dc_num_actions;
+		a = r * NUM_ACTIONS;
 	}
 	return a;
 }
 
 // Update eligibility traces based on action and state
-__host__ __device__ void update_trace(unsigned action, float *s, float *e, unsigned num_features,
+__host__ void update_trace(unsigned action, float *s, float *e, unsigned num_features,
 										unsigned num_actions, unsigned stride, float gamma, float lambda)
 {
 	unsigned feature = feature_for_state(s, stride);
+	float gl = dc_gamma * dc_lambda;
 	for (int f = 0; f < num_features; f++) {
 		for (int a = 0; a < num_actions; a++) {
 			unsigned index = (a + f * num_actions) * stride;
@@ -404,7 +471,8 @@ __host__ __device__ void update_trace(unsigned action, float *s, float *e, unsig
 				e[index] = (a == action) ? 1.0f : 0.0f;
 			}else {
 				// decay all other values
-				e[index] *= gamma * lambda;
+//				e[index] *= gamma * lambda;
+				e[index] *= gl;
 			}
 		}
 	}
@@ -417,17 +485,33 @@ __host__ __device__ void update_trace(unsigned action, float *s, float *e, unsig
 __device__ void update_traceGPU(unsigned action, float *s, float *e, unsigned feature)
 {
 //	unsigned feature = feature_for_state(s, BLOCK_SIZE);
-	for (int f = 0; f < dc_num_features; f++) {
-		for (int a = 0; a < dc_num_actions; a++) {
-			unsigned index = (a + f * dc_num_actions) * dc_agents;
+//	for (int f = 0; f < dc_num_features; f++) {
+//		for (int a = 0; a < dc_num_actions; a++) {
+//			unsigned index = (a + f * dc_num_actions) * dc_agents;
+//			// Replacing trace with optional block
+//			if (f == feature) {
+//				// set to 1.0 for action selected from current state,
+//				// set to 0.0 for actions not taken from current state
+//				e[index] = (a == action) ? 1.0f : 0.0f;
+//			}else{
+//				// decay all other values
+//				e[index] *= gl;
+//			}
+//		}
+//	}
+	unsigned ff = feature * dc_num_actionsXagents;
+	unsigned aa = action * dc_agents;
+	for (unsigned f = 0; f < dc_num_featuresXactionsXagents; f += dc_num_actionsXagents) {
+		for (unsigned a = 0; a < dc_num_actionsXagents; a += dc_agents) {
+			unsigned index = a + f;
 			// Replacing trace with optional block
-			if (f == feature) {
+			if (f == ff) {
 				// set to 1.0 for action selected from current state,
 				// set to 0.0 for actions not taken from current state
-				e[index] = (a == action) ? 1.0f : 0.0f;
-			}else {
+				e[index] = (a == aa) ? 1.0f : 0.0f;
+			}else{
 				// decay all other values
-				e[index] *= dc_gamma * dc_lambda;
+				e[index] *= dc_gammaXlambda;
 			}
 		}
 	}
@@ -437,22 +521,19 @@ __device__ void update_traceGPU(unsigned action, float *s, float *e, unsigned fe
 
 // Update theta values for one agent
 // theta = theta + alpha * delta * eligibility trace
-__device__ __host__ void update_thetas(float *theta, float *e, float alpha, float delta, unsigned num_features, unsigned stride, unsigned num_actions)
+__host__ void update_thetas(float *theta, float *e, float alpha, float delta, unsigned num_features, unsigned stride, unsigned num_actions)
 {
-	if (alpha == 0.0f || delta == 0.0f) return;
 //#ifdef DUMP_THETA_UPDATE_CALCULATIONS
 //	printf("updating thetas for alpha = %9.6f, delta = %9.6f\n", alpha, delta);
 //#endif
-	for (int fa = 0; fa < num_features * num_actions; fa++) {
-		if (e[fa*stride] > 0.001f) {
+	for (int fa = 0; fa < num_features * num_actions * stride; fa += stride) {
 //#ifdef DUMP_THETA_UPDATE_CALCULATIONS
 //			printf("   feature-action %5d(%4x) %3d with trace %9.6f changed from %9.6f", (fa/num_actions), divs_for_feature(fa/num_actions), (fa%num_actions), e[fa*stride], theta[fa*stride]);
 //#endif
-			theta[fa * stride] += alpha * delta * e[fa * stride];
+			theta[fa] += alpha * delta * e[fa];
 //#ifdef DUMP_THETA_UPDATE_CALCULATIONS
 //			printf(" to %9.6f\n", theta[fa*stride]);
 //#endif
-		}
 	}
 }
 
@@ -462,12 +543,9 @@ __device__ __host__ void update_thetas(float *theta, float *e, float alpha, floa
 */
 __device__ void update_thetasGPU(float *theta, float *e, float delta)
 {
-	if (dc_alpha == 0.0f || delta == 0.0f) return;
-	for (int fa = 0; fa < dc_num_features * dc_num_actions; fa++) {
-	//**TODO** see if this test for size of e makes any difference, it was put here for printing purposes
-		if (e[fa*dc_agents] > 0.001f) {
-			theta[fa * dc_agents] += dc_alpha * delta * e[fa * dc_agents];
-		}
+	float ad = dc_alpha * delta;
+	for (int fa = 0; fa < dc_num_featuresXactionsXagents; fa += dc_agents) {
+			theta[fa] += ad * e[fa];
 	}
 }
 
@@ -1122,79 +1200,13 @@ void free_agentsGPU()
 			dc_Q[iGlobal] = s_Q[iLocal];										\
 			dc_Q[iGlobal + dc_agents] = s_Q[iLocal + BLOCK_SIZE];
 
-//__global__ void pole_kernel(float *results)
-//{
-//	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
-//	unsigned idx = threadIdx.x;
-//	
-//	__shared__ float s_s[4 * BLOCK_SIZE];
-//	__shared__ unsigned s_action[BLOCK_SIZE];
-//	__shared__ unsigned s_seeds[4 * BLOCK_SIZE];
-//	__shared__ float s_Q[2*BLOCK_SIZE];
-//	
-//	COPY_STATE_TO_SHARED(idx, iGlobal);
-//	
-//	// prepare for first iteration by chosing first action and updating the trace
-//	if (dc_start_time == 0) {
-////		dc_action[iGlobal] = choose_actionGPU(dc_s + iGlobal, dc_theta + iGlobal, dc_Q + iGlobal,
-////																				 dc_seeds + iGlobal);
-////		update_trace(dc_action[iGlobal], dc_s + iGlobal, dc_e + iGlobal, dc_num_features, 
-////													dc_num_actions, dc_agents, dc_gamma, dc_lambda);
-//		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, s_seeds + idx);
-//		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal);
-//	}
-//	
-//	for (int t = dc_start_time; t <= dc_end_time; t++) {
-//		
-//		// run the test
-//		if (0 == (t % dc_test_interval) && (t > dc_start_time)){
-//			// run the test and record the results
-//
-//			// save state to back to global memory
-//			COPY_STATE_TO_GLOBAL(idx, iGlobal);
-//	
-//			s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx);
-//
-//			// run the test using shared memory
-//			unsigned num_failures = 0;
-//			for (int tt = 0; tt < dc_test_reps; tt++) {
-//				take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
-//				if (terminal_state(s_s + idx, BLOCK_SIZE)) {
-//					++num_failures;
-//					randomize_state(s_s + idx, s_seeds + idx, BLOCK_SIZE);
-//				}
-//				s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx);
-//			}
-//			unsigned iTest = (t-1) / dc_test_interval;
-//			results[iGlobal + iTest * dc_agents] = num_failures;
-//			
-//			// restore agent state
-//			COPY_STATE_TO_SHARED(idx, iGlobal);
-//		}
-//		if (t == dc_end_time) break;
-//		
-//		float reward = take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
-//		unsigned fail = terminal_state(s_s + idx, BLOCK_SIZE);
-//		if (fail) randomize_state(s_s + idx, s_seeds + idx, BLOCK_SIZE);			
-//		float Q_a = s_Q[idx + s_action[idx] * BLOCK_SIZE];
-//		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, s_seeds + idx);
-//		float Q_a_prime = s_Q[idx + s_action[idx] * BLOCK_SIZE];
-//		float delta = reward - Q_a + (fail ? 0 : dc_gamma * Q_a_prime);
-//		update_thetasGPU(dc_theta + iGlobal, dc_e + iGlobal, delta);
-//		if (fail) reset_traceGPU(dc_e + iGlobal);
-//		update_stored_QGPU(s_Q + idx, s_s + idx, dc_theta + iGlobal);
-//		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal);
-//	}
-//	COPY_STATE_TO_GLOBAL(idx, iGlobal);
-//}
-
 /*
 	set all eligibility trace values to 0.0f
 */
 __global__ void pole_clear_trace_kernel()
 {
 	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
-	if (iGlobal < dc_agents * dc_num_features * dc_num_actions) dc_e[iGlobal] = 0.0f;
+	if (iGlobal < dc_num_featuresXactionsXagents) dc_e[iGlobal] = 0.0f;
 }
 
 /*
@@ -1223,24 +1235,30 @@ __global__ void pole_learn_kernel(unsigned steps, unsigned first_time)
 	// randomize state, determine first action and update eligibility trace
 	randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
 	unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
+//	unsigned feature = feature_for_stateGPU(s_s + idx);
 	s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, dc_seeds + iGlobal, feature);
 	update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
 
 	// loop through specified number of time steps
+	float *s_sidx = s_s + idx;
+	float *s_Qidx = s_Q + idx;
 	for (int t = 0; t < steps; t++) {		
-		float reward = take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
-		unsigned fail = terminal_state(s_s + idx, BLOCK_SIZE);
-		if (fail) randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
-		unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
+		float reward = take_action(s_action[idx], s_sidx, s_sidx, BLOCK_SIZE);
+//		unsigned fail = terminal_state(s_s + idx, BLOCK_SIZE);
+		unsigned fail = (reward == REWARD_FAIL);
+		if (fail) randomize_stateGPU(s_sidx, dc_seeds + iGlobal);
+		unsigned feature = feature_for_state(s_sidx, BLOCK_SIZE);
+//		unsigned feature = feature_for_stateGPU(s_sidx);
 		float Q_a = s_Q[idx + s_action[idx] * BLOCK_SIZE];
-		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, dc_seeds + iGlobal, feature);
+		s_action[idx] = choose_actionGPU(s_sidx, dc_theta + iGlobal, s_Qidx, dc_seeds + iGlobal, feature);
 		float Q_a_prime = s_Q[idx + s_action[idx] * BLOCK_SIZE];
 		float delta = reward - Q_a + (fail ? 0 : dc_gamma * Q_a_prime);
 		update_thetasGPU(dc_theta + iGlobal, dc_e + iGlobal, delta);
 		if (fail) reset_traceGPU(dc_e + iGlobal);
-		update_stored_QGPU(s_Q + idx, s_s + idx, dc_theta + iGlobal, feature);
-		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
+		update_stored_QGPU(s_Qidx, s_sidx, dc_theta + iGlobal, feature);
+		update_traceGPU(s_action[idx], s_sidx, dc_e + iGlobal, feature);
 	}
+	// state saved for print-out only 
 	COPY_STATE_TO_GLOBAL(idx, iGlobal);
 }
 
@@ -1259,19 +1277,23 @@ __global__ void pole_test_kernel(float *results)
 	
 	randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
 	unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
+//	unsigned feature = feature_for_stateGPU(s_s + idx);
 	s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, feature);
 //	update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
 
 	// run the test using shared memory
 	unsigned num_failures = 0;
+	float *s_sidx = s_s + idx;
+	float *s_Qidx = s_Q + idx;
 	for (int t = 0; t < dc_test_reps; t++) {
-		take_action(s_action[idx], s_s + idx, s_s + idx, BLOCK_SIZE);
-		if (terminal_state(s_s + idx, BLOCK_SIZE)) {
+		take_action(s_action[idx], s_sidx, s_sidx, BLOCK_SIZE);
+		if (terminal_state(s_sidx, BLOCK_SIZE)) {
 			++num_failures;
-			randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
+			randomize_stateGPU(s_sidx, dc_seeds + iGlobal);
 		}
 		unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
-		s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, feature);
+//		unsigned feature = feature_for_stateGPU(s_s + idx);
+		s_action[idx] = best_actionGPU(s_sidx, dc_theta + iGlobal, s_Qidx, feature);
 	}
 	results[iGlobal] = num_failures;
 	
