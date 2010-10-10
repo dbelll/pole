@@ -104,7 +104,9 @@ PARAMS read_params(int argc, const char **argv)
 	}
 	p.num_restarts = p.time_steps / p.restart_interval;
 	p.restarts_per_test = p.num_restarts / p.num_tests;
-
+	p.restarts_per_share = p.num_restarts / p.sharing_interval;
+	if (p.restarts_per_share == 0) p.restarts_per_share = 1;
+	
 	printf("[POLE][TRIALS%7d][TIME_STEPS%7d][SHARING_INTERVAL%7d][AGENT_GROUP_SIZE%7d][ALPHA%7.4f]"
 		   "[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][TEST_INTERVAL%7d][TEST_REPS%7d]"
 		   "[RESTART_INTERVAL%7d][DIVS%3d%3d%3d%3d]\n", p.trials, p.time_steps, p.sharing_interval, p.agent_group_size, 

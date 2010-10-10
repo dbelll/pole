@@ -18,6 +18,7 @@
 
 // paramaters in constant memory on the device
 __constant__ unsigned dc_agents;
+__constant__ unsigned dc_agent_group_size;
 __constant__ unsigned dc_time_steps;
 
 __constant__ float dc_epsilon;
@@ -67,6 +68,7 @@ void set_start_end_times(unsigned start, unsigned end)
 void set_constant_params(PARAMS p)
 {
 	cudaMemcpyToSymbol("dc_agents", &p.agents, sizeof(unsigned));
+	cudaMemcpyToSymbol("dc_agent_group_size", &p.agent_group_size, sizeof(unsigned));
 	cudaMemcpyToSymbol("dc_time_steps", &p.time_steps, sizeof(unsigned));
 	cudaMemcpyToSymbol("dc_epsilon", &p.epsilon, sizeof(float));
 	cudaMemcpyToSymbol("dc_gamma", &p.gamma, sizeof(float));
@@ -812,6 +814,26 @@ void learning_session(AGENT_DATA *ag)
 	}
 }
 
+// calculate average theta values within each agent group and duplicate
+// for all agents in the group
+void share_theta(AGENT_DATA *ag)
+{
+	// loop over every agent group and accumulate the theta values
+	// in agent 0 in that group, then duplicate for all agents in group
+	for (int i = 0; i < _p.trials; i++) {
+		for (int fa = 0; fa < _p.num_features * _p.num_actions; fa++) {
+			unsigned agent0 = i * _p.agent_group_size + fa * _p.agents;
+			for (int a = agent0 + 1; a < agent0 + _p.agent_group_size; a++) {
+				ag->theta[agent0] += ag->theta[a];
+			}
+			float avg = ag->theta[agent0] / _p.agent_group_size;
+			for (int a = agent0; a < agent0 + _p.agent_group_size; a++) {
+				ag->theta[a] = avg;
+			}
+		}
+	}
+}
+
 void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 {
 	unsigned tot_fails = 0;
@@ -821,12 +843,6 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 
 	// on entry the agent's theta, eligibility trace, and state values have been initialized
 	
-#ifdef DUMP_AGENT_ACTIONS
-	printf("----------------------------------------------------\n");
-	printf("-------------- BEGIN MAIN LOOP ---------------------\n");
-	printf("----------------------------------------------------\n");
-#endif	
-
 	int k = 1;
 	if (_p.num_restarts > 40) {
 		k = 1 + (_p.num_restarts-1)/40;
@@ -837,18 +853,32 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 	}
 	printf("|\n");
 
+#ifdef VERBOSE
+			printf("%d restarts per share\n", _p.restarts_per_share);
+#endif
+
 	for (int i = 0; i < _p.num_restarts; i++) {
+#ifdef VERBOSE
+			printf("---------------restart [%d]------------------\n", i);
+#endif
 		// print progress indicator dots
 		if (0 == (i+1) % k) { printf("."); fflush(NULL); }
 
 		clear_traces(ag);
 		learning_session(ag);
 		
+		if (0 == ((i+1)%_p.restarts_per_share)) {
+#ifdef VERBOSE
+			printf("sharing calculations...\n");
+#endif
+			share_theta(ag);
+		}
+		
 		if (0 == ((i+1)%_p.restarts_per_test)) {
 			r->avg_fail[i/_p.restarts_per_test] = run_test(ag);
+//			dump_agents("\n agent state after test", ag);
 		}
 	}
-	
 
 #ifdef DUMP_TERMINAL_AGENT_STATE
 	printf("\n----------------------------------------------\n");
@@ -877,7 +907,7 @@ void run_CPU(AGENT_DATA *ag, RESULTS *r)
 	unsigned timer;
 	CREATE_TIMER(&timer);
 	START_TIMER(timer);
-	_p.agent_group_size > 1 ? run_CPU_share(ag, r) : run_CPU_noshare(ag, r);	
+	_p.agent_group_size > 1 ? run_CPU_noshare(ag, r) : run_CPU_noshare(ag, r);
 	STOP_TIMER(timer, "run on CPU");
 }
 
@@ -1038,6 +1068,40 @@ void free_agentsGPU()
 			dc_Q[iGlobal + dc_agents] = s_Q[iLocal + BLOCK_SIZE];
 
 /*
+*	Calculate average thetas for each feature/action value for the entire group and share with 
+*	all threads in the group
+*	The group's y dimension is the feature/action index.
+*	Shared memory is used to to the reduction to get total values for the group.
+*/
+__global__ void pole_share_kernel()
+{
+	unsigned idx = threadIdx.x;
+	unsigned fa = blockIdx.y;
+	unsigned iGlobal = idx + blockIdx.x * blockDim.x + fa * dc_agents;
+	
+	// copy thetas to shared memory
+	extern __shared__ float s_theta[];
+	
+	s_theta[idx] = dc_theta[iGlobal];
+
+	__syncthreads();
+	
+	// do a reduction on theta for this group
+	for (unsigned half = dc_agent_group_size >> 1; half > 0; half >>= 1) {
+		if (idx < half) {
+			s_theta[idx] += s_theta[idx + half];
+		}
+		__syncthreads();
+	}
+	
+	// s_total[0] contains the sum of theta values for the entire block
+	
+	// copy s_theta back to global memory, converting it to the average value
+	dc_theta[iGlobal] = s_theta[0] / dc_agent_group_size;
+}
+
+
+/*
 	set all eligibility trace values to 0.0f
 */
 __global__ void pole_clear_trace_kernel()
@@ -1171,6 +1235,10 @@ void run_GPU(RESULTS *r)
 		clearTraceGridDim.y = 1 + (clearTraceGridDim.x-1) / 65535;
 		clearTraceGridDim.x = 1 + (clearTraceGridDim.x-1) / clearTraceGridDim.y;
 	}
+	
+	dim3 shareBlockDim(_p.agent_group_size);
+	dim3 shareGridDim(_p.trials, _p.num_features * _p.num_actions);
+	
 #ifdef VERBOSE
 	printf("%d total agents\n", _p.agents);
 	printf("%d threads per block, (%d x %d) grid of blocks\n", blockDim.x, gridDim.x, gridDim.y);
@@ -1188,8 +1256,10 @@ void run_GPU(RESULTS *r)
 		CUT_CHECK_ERROR("pole_clear_trace_kernel execution failed");
 		pole_learn_kernel<<<gridDim, blockDim>>>(_p.restart_interval, i==0);
 		CUT_CHECK_ERROR("pole_learn_kernel execution failed");
-		
-		pole_share_kernel<<<shareGridDim, shareBlockDim>>>();
+
+		if (0 == ((i+1) % _p.restarts_per_share)) {
+			pole_share_kernel<<<shareGridDim, shareBlockDim, _p.agent_group_size * sizeof(float)>>>();
+		}
 		
 		if (0 == ((i+1) % _p.restarts_per_test)) {
 //			printf("pole_test_kernel...\n");
@@ -1200,16 +1270,13 @@ void run_GPU(RESULTS *r)
 	cudaThreadSynchronize();
 	STOP_TIMER(timer, "run pole kernel on GPU");
 	
-//	// Check if kernel execution generated an error
-//	CUT_CHECK_ERROR("Kernel execution failed");
-	
 	START_TIMER(timer);
 	// reduce the result array on the device and copy back to the host
 	row_reduce(d_results, _p.agents, _p.num_tests);
 	for (int i = 0; i < _p.num_tests; i++) {
 		CUDA_SAFE_CALL(cudaMemcpy(r->avg_fail + i, d_results + i * _p.agents, sizeof(float), 
 																cudaMemcpyDeviceToHost));
-		r->avg_fail[i] /= _p.trials;
+		r->avg_fail[i] /= _p.agents;
 	}
 	cudaThreadSynchronize();
 	STOP_TIMER(timer, "reduce GPU results and copy data back to host");

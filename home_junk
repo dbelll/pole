@@ -8,3 +8,22 @@ Running…
 GPU: 
     TEST  Avg Fails
    [   0]   2.5449
+
+
+-----------
+poleprofile
+-----------
+[POLE][TRIALS   1024][TIME_STEPS  32768][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_INTERVAL   8192][TEST_REPS  16384][RESTART_INTERVAL    512][DIVS  3  2  3  2]
+    2910.339 ms for run pole kernel on GPU
+       0.598 ms for reduce GPU results and copy data back to host
+GPU: 
+    TEST  Avg Fails
+   [   0]   4.9893
+   [   1]   2.7451
+   [   2]   1.9385
+   [   3]   1.1934
+
+
+-------------------
+poleprofile sharing
+-------------------

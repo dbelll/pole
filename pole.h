@@ -100,6 +100,7 @@ typedef struct {
 	unsigned restart_interval;	// time steps between random restarts
 	unsigned num_restarts;		// calculated = time_steps / restart_interval
 	unsigned restarts_per_test;	// calculated = num_restarts / num_tests
+	unsigned restarts_per_share;	// calculated = sharing_interval / restart_interval, but not < 1
 } PARAMS;
 
 typedef struct{
