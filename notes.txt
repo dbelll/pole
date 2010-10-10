@@ -16,7 +16,7 @@ Average the theta values across all agents
 	Straight average, all agents given the same weight
 	Exclude values that have never been updated
 	Give extra weight to agents that 'own' a section of the state space.
-	Keep track of the 'update weight' which is the some of the lambda amounts used to update each theta
+	Keep track of the 'update weight' which is the sum of the lambda amounts used to update each theta
 		When sharing use a weighted average based on the 'update weights' 
 	
 record all state, action, result, state action values for the episode, then have all agents update their parameters by using the same
@@ -26,3 +26,8 @@ record all state, action, result, state action values for the episode, then have
 Differentiation
 ---------------
 Partition the state space - each agent starts in their sector of state space whenever their state is randomized.
+
+Use different re-start intervals
+
+Assign a wider range for initial states
+

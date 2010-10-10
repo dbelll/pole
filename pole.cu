@@ -818,35 +818,9 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 #ifdef DUMP_INTERMEDIATE_FAIL_COUNTS
 	unsigned prev_tot_fails = 0;
 #endif
-#ifdef VERBOSE
-	printf(" no sharing\n");
-#endif
 
 	// on entry the agent's theta, eligibility trace, and state values have been initialized
 	
-//#ifdef DUMP_AGENT_ACTIONS
-//		printf("-----------------------------------------------------------\n");
-//		printf("---------------------- INITIAL SETUP ----------------------\n");
-//		printf("-----------------------------------------------------------\n");
-//#endif
-//
-//	// set-up agents to begin the loop by choosing the first action and updating traces
-//	for (int agent = 0; agent < _p.agents; agent++) {
-//	
-//		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
-//	
-//		ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon, _p.agents,
-//										ag->Q + agent, _p.num_actions, ag->seeds + agent);
-//
-//#ifdef DUMP_AGENT_ACTIONS
-//		printf("agent %d will choose action %d from state ", agent, ag->action[agent]);
-//		dump_state(ag->s + agent, _p.agents);
-//#endif
-//
-//		update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
-//												_p.num_actions, _p.agents, _p.gamma, _p.lambda);		
-//	}
-
 #ifdef DUMP_AGENT_ACTIONS
 	printf("----------------------------------------------------\n");
 	printf("-------------- BEGIN MAIN LOOP ---------------------\n");
@@ -863,15 +837,8 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 	}
 	printf("|\n");
 
-	// main loop, repeat for the number of learning sessions
-//	for (int i = 0; i < _p.num_tests; i++) {
-//		if (0 == (i+1) % k) { printf("."); fflush(NULL); }
-//
-//		clear_traces(ag);
-//		learning_session(ag);
-//		r->avg_fail[i] = run_test(ag);
-//	}
 	for (int i = 0; i < _p.num_restarts; i++) {
+		// print progress indicator dots
 		if (0 == (i+1) % k) { printf("."); fflush(NULL); }
 
 		clear_traces(ag);
@@ -882,146 +849,6 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 		}
 	}
 	
-//	for (int t = 0; t <= _p.time_steps; t++) {
-//		if (0 == (t+1) % k) {
-//			printf(".");
-//			fflush(NULL);
-//		}
-//
-//		if (0 == (t % _p.test_interval) && (t > 0)) {
-//			// run the test and store the result
-//
-////			unsigned iTest = (t-1) / _p.test_interval;
-////			r->avg_fail[iTest] = run_test(ag);
-//
-//			// randomize new starting state for continued learning
-//			printf("randomizing agent states at time step %d\n", t);
-//			for (int agent = 0; agent < dc_agents; agent++) {
-//				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
-//				ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon, _p.agents,
-//												ag->Q + agent, _p.num_actions, ag->seeds + agent);
-//				update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
-//														_p.num_actions, _p.agents, _p.gamma, _p.lambda);		
-//			}
-//		}
-//		if (t == _p.time_steps) break;
-//
-//#ifdef DUMP_AGENT_ACTIONS
-//	printf("\n------------------ TIME STEP%3d ------------------------\n", t);
-//#endif	
-//
-//		for (int agent = 0; agent < _p.agents; agent++) {
-//
-//			// randomize state for next learning segment
-//			if (0 == (t%_p.test_interval) && (t>0)) {
-//			}
-//
-//			// stored state is s      stored Q's are Q(s)  
-//			
-//#ifdef DUMP_AGENT_ACTIONS
-//			printf("<<<<<<<< AGENT %d >>>>>>>>>>>>\n", agent);
-//			printf("time step %d, agent %d ready for next action\n", t, agent);
-//			dump_agent(ag, agent);
-//#endif
-//			// take the action already chosen and saved in ag->action
-//			unsigned prev_feature = feature_for_state(ag->s, _p.agents);
-//			float reward = take_action(ag->action[agent], ag->s + agent, ag->s + agent, _p.agents);
-//
-//#ifdef DUMP_AGENT_BRIEF
-//			(agent == 0) ? printf("[step%4d]", t) : printf("          ");
-//			printf("[agent%3d] took action:%2d, got reward:%6.3f, new state is ", agent, ag->action[agent], reward);
-//			dump_state(ag->s + agent, _p.agents);
-//#endif
-//			
-//			// stored state is s_prime      stored Q's are Q(s)
-//			unsigned fail = terminal_state(ag->s + agent, _p.agents);
-//			if (fail){
-//#ifdef DUMP_FAILURE_TIMES
-//				printf("Agent%4d Failure at %d taking action %d from state %d (%x) resulting in %s\n", agent, t, ag->action[agent], prev_feature, divs_for_feature(prev_feature), failure_type(ag->s + agent, _p.agents));
-//#endif
-//#ifdef DUMP_AGENT_STATE_ON_FAILURE
-//				printf("session initial state was angle=%6.2f,  angleV=%6.2f, x=%6.2f, xV=%6.2f\n",
-//						orig_a, orig_aV, orig_x, orig_xV);
-//				dump_agent(ag, agent);
-//#endif
-//				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
-//				
-////				if (agent == 0){
-////					orig_a = ag->s[0];
-////					orig_aV = ag->s[_p.agents];
-////					orig_x = ag->s[2*_p.agents];
-////					orig_xV = ag->s[3*_p.agents];
-////				}
-//				++tot_fails;
-//			}
-//						
-//
-//			float Q_a = ag->Q[agent + ag->action[agent] * _p.agents];
-//
-//#ifdef DUMP_AGENT_ACTIONS
-//			if (fail) printf("-------------------------------------------------------\n!!!! terminal state reached, next state is random\n---------------------------------------------------\n\n");
-//			printf("agent %d, took action %d, got reward %6.3f, now in state s_prime = " , agent,	ag->action[agent], reward);
-//			dump_state(ag->s + agent, _p.agents);
-//#endif
-//
-//#ifdef DUMP_CALCULATIONS
-//			printf("reward is %9.6f, Q[%d] for state s is %9.6f\n", reward, ag->action[agent], Q_a);
-//#endif
-//
-////			ag->prev_action[agent] = ag->action[agent];
-////			ag->f_prev_state[agent] = feature_for_state(ag->s + agent, _p.agents);
-//			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon,
-//								_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
-//			
-//			// Stored Q values are now based on the new state, s_prime
-//
-//#ifdef DUMP_AGENT_ACTIONS
-//			printf("agent %d's next action will be %d with Q-value %9.6f\n", agent, ag->action[agent], ag->Q[agent + ag->action[agent] * _p.agents]);
-////			dump_state(ag->s + agent, _p.agents);
-//#endif
-//
-//			float Q_a_prime = ag->Q[agent + ag->action[agent] * _p.agents];
-//			float delta = reward - Q_a + (fail ? 0 : _p.gamma * Q_a_prime);
-//
-//#ifdef DUMP_CALCULATIONS
-//			printf("discount is %9.6f, newQ[%d] is %9.6f, so delta is %9.6f\n", _p.gamma, 
-//												ag->action[agent], (fail ? 0.0f : Q_a_prime), delta);
-//#endif
-//
-//#ifdef DUMP_AGENT_ACTIONS
-//			printf("[update_theta]:\n");
-//#endif
-//
-//			update_thetas(ag->theta + agent, ag->e + agent, _p.alpha, delta, _p.num_features,
-//																	 _p.agents, _p.num_actions);
-//			if (fail) reset_trace(ag->e + agent, _p.num_features, _p.num_actions, _p.agents);
-//
-//			update_stored_Q(ag->Q + agent, ag->s + agent, ag->theta + agent, _p.agents, 
-//																				_p.num_actions);
-//			
-//#ifdef DUMP_AGENT_ACTIONS
-//			printf("[update_trace]\n");
-//#endif
-//
-//			update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, _p.num_actions, _p.agents, _p.gamma, _p.lambda);
-//			
-//#ifdef DUMP_AGENT_ACTIONS
-////			printf("agent state after updating theta and eligibility trace:\n");
-////			dump_agent(ag, agent);
-//#endif
-//		}
-//
-//#ifdef DUMP_INTERMEDIATE_FAIL_COUNTS
-//		if (0 == (1+t) % _p.test_interval) {
-//			printf("intermediate fail count =%7.2f\n", (tot_fails - prev_tot_fails)/(float)_p.trials);
-//			prev_tot_fails = tot_fails;
-//		}
-//#endif
-//
-//
-//	}
-//	
-////	printf("*********[%3d] test results =%7.2f\n", _p.time_steps / _p.test_interval, run_test(ag));
 
 #ifdef DUMP_TERMINAL_AGENT_STATE
 	printf("\n----------------------------------------------\n");
@@ -1361,6 +1188,8 @@ void run_GPU(RESULTS *r)
 		CUT_CHECK_ERROR("pole_clear_trace_kernel execution failed");
 		pole_learn_kernel<<<gridDim, blockDim>>>(_p.restart_interval, i==0);
 		CUT_CHECK_ERROR("pole_learn_kernel execution failed");
+		
+		pole_share_kernel<<<shareGridDim, shareBlockDim>>>();
 		
 		if (0 == ((i+1) % _p.restarts_per_test)) {
 //			printf("pole_test_kernel...\n");
