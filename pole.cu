@@ -1249,7 +1249,7 @@ void run_GPU(RESULTS *r)
 	CREATE_TIMER(&timer);
 	START_TIMER(timer);
 	
-//	printf("_p.num_tests = %d\n", _p.num_tests);
+	//	printf("_p.restarts_per_share = %d\n", _p.restarts_per_share);
 	for (int i = 0; i < _p.num_restarts; i++) {
 //		printf("restart pole_learning_kernel...\n");
 		pole_clear_trace_kernel<<<clearTraceGridDim, clearTraceBlockDim>>>();
@@ -1257,15 +1257,16 @@ void run_GPU(RESULTS *r)
 		pole_learn_kernel<<<gridDim, blockDim>>>(_p.restart_interval, i==0);
 		CUT_CHECK_ERROR("pole_learn_kernel execution failed");
 
-		if (0 == ((i+1) % _p.restarts_per_share)) {
+		if ((_p.agent_group_size > 1) && (0 == ((i+1) % _p.restarts_per_share))) {
+		  //		  printf("<sharing after restart %d>\n", (i+1));
 			pole_share_kernel<<<shareGridDim, shareBlockDim, _p.agent_group_size * sizeof(float)>>>();
 		}
 		
-		if (0 == ((i+1) % _p.restarts_per_test)) {
+		//		if (0 == ((i+1) % _p.restarts_per_test)) {
 //			printf("pole_test_kernel...\n");
-			pole_test_kernel<<<gridDim, blockDim>>>(d_results + (i / _p.restarts_per_test) * _p.agents);
-			CUT_CHECK_ERROR("pole_test_kernel execution failed");
-		}
+//			pole_test_kernel<<<gridDim, blockDim>>>(d_results + (i / _p.restarts_per_test) * _p.agents);
+//			CUT_CHECK_ERROR("pole_test_kernel execution failed");
+//		}
 	}
 	cudaThreadSynchronize();
 	STOP_TIMER(timer, "run pole kernel on GPU");
