@@ -22,7 +22,7 @@ obj
 tmp
 
 # don't include the profiling output
-profile_log.csv
+*.csv
 
 # other junk
 junk*

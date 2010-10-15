@@ -1262,11 +1262,11 @@ void run_GPU(RESULTS *r)
 			pole_share_kernel<<<shareGridDim, shareBlockDim, _p.agent_group_size * sizeof(float)>>>();
 		}
 		
-		//		if (0 == ((i+1) % _p.restarts_per_test)) {
+      		if (0 == ((i+1) % _p.restarts_per_test)) {
 //			printf("pole_test_kernel...\n");
-//			pole_test_kernel<<<gridDim, blockDim>>>(d_results + (i / _p.restarts_per_test) * _p.agents);
-//			CUT_CHECK_ERROR("pole_test_kernel execution failed");
-//		}
+		  pole_test_kernel<<<gridDim, blockDim>>>(d_results + (i / _p.restarts_per_test) * _p.agents);
+		  CUT_CHECK_ERROR("pole_test_kernel execution failed");
+		}
 	}
 	cudaThreadSynchronize();
 	STOP_TIMER(timer, "run pole kernel on GPU");

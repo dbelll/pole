@@ -3,6 +3,10 @@
 #
 #  Test restart interavl
 #
+
+# Turn on profiling
+profiling_on
+
 _trials="--TRIALS=2048"
 
 _run="--RUN_ON_CPU=0 --RUN_ON_GPU=1"
@@ -70,5 +74,11 @@ $_location/pole $_common --AGENT_GROUP_SIZE=32 --TIME_STEPS=16384 --TEST_INTERVA
 
 
 
-
-
+function profiling_on
+{
+    export CUDA_PROFILE=1
+    export CUDA_PROFILE_CONFIG=profile_config
+    export CUDA_PROFILE_LOG=pole_profile_log.csv
+    export CUDA_PROFILE_CSV=1
+echo "Profiling is on."
+}
