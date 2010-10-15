@@ -97,11 +97,22 @@ PARAMS read_params(int argc, const char **argv)
 	p.num_tests = p.time_steps / p.test_interval;
 	
 	p.restart_interval = GET_PARAM("RESTART_INTERVAL", p.test_interval);
+	// test interval must be a positive integer times the restart interval
 	if (p.restart_interval > p.test_interval || 0 != (p.test_interval % p.restart_interval)) {
 		printf("Inconsistent arguments: TEST_INTERVAL=%d, RESTART_INTERVAL=%d\n", p.test_interval, 
 			   p.restart_interval);
+		printf("TEST_INTERVAL must be a positive integer multiple of RESTART_INTERVAL");
 		exit(1);
 	}
+	
+	// sharing interval must be a positive integer times the restart interval
+	if (p.restart_interval > p.sharing_interval || 0 != (p.sharing_interval % p.restart_interval)) {
+		printf("Inconsistent arguments: SHARING_INTERVAL=%d, RESTART_INTERVAL=%d\n", 
+			   p.sharing_interval, p.restart_interval);
+		printf("SHARING_INTERVAL must be a positive intebger multiple of RESTART_INTERVAL");
+		exit(1);
+	}
+	
 	p.num_restarts = p.time_steps / p.restart_interval;
 	p.restarts_per_test = p.num_restarts / p.num_tests;
 	p.restarts_per_share = p.sharing_interval / p.restart_interval;
