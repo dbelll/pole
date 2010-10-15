@@ -8,6 +8,9 @@ Write position, angle, and action to a file for playback.
 
 Put agent datsa structure into constant memory.
 
+***
+Allow sharing and testing more frequently than the restart interval.  This will require having the agent save state and restore it when 
+
 
 -------
 Sharing

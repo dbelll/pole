@@ -126,8 +126,9 @@ __host__ __device__ float random_interval(unsigned *seeds, unsigned stride, floa
 }
 
 // randomize the state
-__host__ __device__ void randomize_state(float *s, unsigned *seeds, unsigned stride)
+__host__ void randomize_state(float *s, unsigned *seeds, unsigned stride)
 {
+//	printf("..... randomizing state .....\n");
 	s[0] = random_interval(seeds, stride, ANGLE_MAX);
 	s[stride] = random_interval(seeds, stride, ANGLE_VEL_MAX/4.0f);
 	s[2*stride] = random_interval(seeds, stride, X_MAX);
@@ -457,12 +458,13 @@ __device__ unsigned choose_actionGPU(float *s, float *theta, float *Q, unsigned 
 	return a;
 }
 
+
 // Update eligibility traces based on action and state
 __host__ void update_trace(unsigned action, float *s, float *e, unsigned num_features,
-										unsigned num_actions, unsigned stride, float gamma, float lambda)
+										unsigned num_actions, unsigned stride)
 {
 	unsigned feature = feature_for_state(s, stride);
-	float gl = dc_gamma * dc_lambda;
+	float gl = _p.gamma * _p.lambda;
 	for (int f = 0; f < num_features; f++) {
 		for (int a = 0; a < num_actions; a++) {
 			unsigned index = (a + f * num_actions) * stride;
@@ -473,7 +475,6 @@ __host__ void update_trace(unsigned action, float *s, float *e, unsigned num_fea
 				e[index] = (a == action) ? 1.0f : 0.0f;
 			}else {
 				// decay all other values
-//				e[index] *= gamma * lambda;
 				e[index] *= gl;
 			}
 		}
@@ -724,17 +725,17 @@ float run_test(AGENT_DATA *ag)
 //		unsigned old_num_failures = num_failures;
 		
 		// save agent state prior to testing
-//		float s0 = ag->s[agent];
-//		float s1 = ag->s[agent + _p.agents];
-//		float s2 = ag->s[agent + 2*_p.agents];
-//		float s3 = ag->s[agent + 3*_p.agents];
-//		unsigned act = ag->action[agent];
+		float s0 = ag->s[agent];
+		float s1 = ag->s[agent + _p.agents];
+		float s2 = ag->s[agent + 2*_p.agents];
+		float s3 = ag->s[agent + 3*_p.agents];
+		unsigned act = ag->action[agent];
 //		unsigned seed0 = ag->seeds[agent];
 //		unsigned seed1 = ag->seeds[agent + _p.agents];
 //		unsigned seed2 = ag->seeds[agent + 2 * _p.agents];
 //		unsigned seed3 = ag->seeds[agent + 3 * _p.agents];
-//		float Q0 = ag->Q[agent];
-//		float Q1 = ag->Q[agent + _p.agents];
+		float Q0 = ag->Q[agent];
+		float Q1 = ag->Q[agent + _p.agents];
 		
 		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
 		ag->action[agent] = best_action(ag->s + agent, ag->theta + agent, ag->Q + agent, _p.agents, _p.num_actions);
@@ -753,17 +754,17 @@ float run_test(AGENT_DATA *ag)
 		}
 		
 		// restore agent state
-//		ag->s[agent] = s0;
-//		ag->s[agent + _p.agents] = s1;
-//		ag->s[agent + 2*_p.agents] = s2;
-//		ag->s[agent + 3*_p.agents] = s3;
-//		act = ag->action[agent] = act;
+		ag->s[agent] = s0;
+		ag->s[agent + _p.agents] = s1;
+		ag->s[agent + 2*_p.agents] = s2;
+		ag->s[agent + 3*_p.agents] = s3;
+		act = ag->action[agent] = act;
 //		ag->seeds[agent] = seed0;
 //		ag->seeds[agent + _p.agents] = seed1;
 //		ag->seeds[agent + 2 * _p.agents] = seed2;
 //		ag->seeds[agent + 3 * _p.agents] = seed3;
-//		ag->Q[agent] = Q0;
-//		ag->Q[agent + _p.agents] = Q1;
+		ag->Q[agent] = Q0;
+		ag->Q[agent + _p.agents] = Q1;
 		
 //		printf("after testing...\n");
 //		dump_agent(ag, agent);
@@ -783,18 +784,24 @@ void clear_traces(AGENT_DATA *ag)
 	}
 }
 
-void learning_session(AGENT_DATA *ag)
+void randomize_all_states(AGENT_DATA *ag)
 {
+	// randomize the state for all agents, preparing for a new test session
 	for (int agent = 0; agent < _p.agents; agent++) {
-		// randomize the state for all agents
-		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+		randomize_state(ag->s + agent,  ag->seeds + agent, _p.agents);
 		ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon, _p.agents,
 										ag->Q + agent, _p.num_actions, ag->seeds + agent);
 		update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
-												_p.num_actions, _p.agents, _p.gamma, _p.lambda);
-												
-		// loop over the time steps in the learning interval
-		for (int t = 0; t < _p.test_interval; t++) {
+												_p.num_actions, _p.agents);
+	}
+}
+
+void learning_session(AGENT_DATA *ag)
+{
+	// run learning session for all agents for one chunk of time
+	for (int agent = 0; agent < _p.agents; agent++) {
+		// loop over the time steps in the chunk
+		for (int t = 0; t < _p.chunk_interval; t++) {
 			float reward = take_action(ag->action[agent], ag->s + agent, ag->s + agent, _p.agents);
 			unsigned fail = terminal_state(ag->s + agent, _p.agents);
 			if (fail) randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
@@ -809,7 +816,7 @@ void learning_session(AGENT_DATA *ag)
 			update_stored_Q(ag->Q + agent, ag->s + agent, ag->theta + agent, _p.agents, 
 																				_p.num_actions);
 			update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
-												_p.num_actions, _p.agents, _p.gamma, _p.lambda);
+												_p.num_actions, _p.agents);
 		}
 	}
 }
@@ -844,38 +851,57 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 	// on entry the agent's theta, eligibility trace, and state values have been initialized
 	
 	int k = 1;
-	if (_p.num_restarts > 40) {
-		k = 1 + (_p.num_restarts-1)/40;
+	if (_p.num_chunks > 40) {
+		k = 1 + (_p.num_chunks-1)/40;
 	}
 	
-	for (int i = 0; i < (_p.num_restarts / k); i++) {
+	for (int i = 0; i < (_p.num_chunks / k); i++) {
 		printf("-");
 	}
 	printf("|\n");
 
 #ifdef VERBOSE
-			printf("%d restarts per share\n", _p.restarts_per_share);
+			printf("%d chunks per share\n", _p.chunks_per_share);
 #endif
 
-	for (int i = 0; i < _p.num_restarts; i++) {
+	for (int i = 0; i < _p.num_chunks; i++) {
 #ifdef VERBOSE
-			printf("---------------restart [%d]------------------\n", i);
+			printf("--------------- new chunk [%d]------------------\n", i);
 #endif
 		// print progress indicator dots
 		if (0 == (i+1) % k) { printf("."); fflush(NULL); }
 
-		clear_traces(ag);
-		learning_session(ag);
-		
-		if (0 == ((i+1)%_p.restarts_per_share)) {
+		if(0 == (i % _p.chunks_per_restart)){
+
 #ifdef VERBOSE
-			printf("sharing calculations...\n");
+			printf("clearing traces ...\n");
+#endif
+			clear_traces(ag);
+#ifdef VERBOSE
+//			dump_agents("\n agent state after clearing, before randomizing", ag);
+			printf("randomizing state ...\n");
+#endif
+			randomize_all_states(ag);
+		}
+#ifdef VERBOSE
+		printf("learning session ...\n");
+#endif
+		learning_session(ag);
+//		dump_agents("\n agent state after learning", ag);
+		
+		if ((_p.agent_group_size > 1) && 0 == ((i+1)%_p.chunks_per_share)) {
+#ifdef VERBOSE
+			printf("sharing ...\n");
 #endif
 			share_theta(ag);
+//			dump_agents("\n agent state after sharing", ag);
 		}
 		
-		if (0 == ((i+1)%_p.restarts_per_test)) {
-			r->avg_fail[i/_p.restarts_per_test] = run_test(ag);
+		if (0 == ((i+1)%_p.chunks_per_test)) {
+#ifdef VERBOSE
+			printf("testing...\n");
+#endif
+			r->avg_fail[i/_p.chunks_per_test] = run_test(ag);
 //			dump_agents("\n agent state after test", ag);
 		}
 	}
@@ -884,7 +910,8 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 	printf("\n----------------------------------------------\n");
 	dump_agents("               ENDING AGENT STATES\n", ag);
 #endif		
-	printf("total failures = %d\n", tot_fails);
+	printf("\n");
+//	printf("total failures = %d\n", tot_fails);
 }
 
 void run_CPU_share(AGENT_DATA *cv, RESULTS *r)
@@ -1049,29 +1076,30 @@ void free_agentsGPU()
 	copy state information from global device memory to shared memory
 	assumes stride is BLOCK_SIZE for shared memory and dc_agents for global memory
 */
-#define COPY_STATE_TO_SHARED(iLocal, iGlobal)															\
-			s_s[iLocal] = dc_s[iGlobal];										\
-			s_s[iLocal + BLOCK_SIZE] = dc_s[iGlobal + dc_agents];				\
-			s_s[iLocal + 2*BLOCK_SIZE] = dc_s[iGlobal + 2*dc_agents];			\
-			s_s[iLocal + 3*BLOCK_SIZE] = dc_s[iGlobal + 3*dc_agents];			\
-			s_action[iLocal] = dc_action[iGlobal];									\
-			s_Q[iLocal] = dc_Q[iGlobal];										\
-			s_Q[iLocal + BLOCK_SIZE] = dc_Q[iGlobal + dc_agents];
+#define COPY_STATE_TO_SHARED(iLocal, iGlobal)	{						\
+			s_s[iLocal] = dc_s[iGlobal];								\
+			s_s[iLocal + BLOCK_SIZE] = dc_s[iGlobal + dc_agents];		\
+			s_s[iLocal + 2*BLOCK_SIZE] = dc_s[iGlobal + 2*dc_agents];	\
+			s_s[iLocal + 3*BLOCK_SIZE] = dc_s[iGlobal + 3*dc_agents];	\
+			s_action[iLocal] = dc_action[iGlobal];						\
+			s_Q[iLocal] = dc_Q[iGlobal];								\
+			s_Q[iLocal + BLOCK_SIZE] = dc_Q[iGlobal + dc_agents];		\
+		}
 			
-#define COPY_STATE_TO_GLOBAL(iLocal, iGlobal)									\
-			dc_s[iGlobal] = s_s[iLocal];										\
-			dc_s[iGlobal + dc_agents] = s_s[iLocal + BLOCK_SIZE];				\
-			dc_s[iGlobal + 2*dc_agents] = s_s[iLocal + 2*BLOCK_SIZE];			\
-			dc_s[iGlobal + 3*dc_agents] = s_s[iLocal + 3*BLOCK_SIZE];			\
-			dc_action[iGlobal] = s_action[iLocal];									\
-			dc_Q[iGlobal] = s_Q[iLocal];										\
-			dc_Q[iGlobal + dc_agents] = s_Q[iLocal + BLOCK_SIZE];
-
+#define COPY_STATE_TO_GLOBAL(iLocal, iGlobal)	{						\
+			dc_s[iGlobal] = s_s[iLocal];								\
+			dc_s[iGlobal + dc_agents] = s_s[iLocal + BLOCK_SIZE];		\
+			dc_s[iGlobal + 2*dc_agents] = s_s[iLocal + 2*BLOCK_SIZE];	\
+			dc_s[iGlobal + 3*dc_agents] = s_s[iLocal + 3*BLOCK_SIZE];	\
+			dc_action[iGlobal] = s_action[iLocal];						\
+			dc_Q[iGlobal] = s_Q[iLocal];								\
+			dc_Q[iGlobal + dc_agents] = s_Q[iLocal + BLOCK_SIZE];		\
+		}
 /*
 *	Calculate average thetas for each feature/action value for the entire group and share with 
 *	all threads in the group
 *	The group's y dimension is the feature/action index.
-*	Shared memory is used to to the reduction to get total values for the group.
+*	Shared memory is used to do the reduction to get total values for the group.
 */
 __global__ void pole_share_kernel()
 {
@@ -1120,7 +1148,7 @@ __global__ void pole_clear_trace_kernel()
 	
 	Ending state is not saved.
 */
-__global__ void pole_learn_kernel(unsigned steps, unsigned first_time)
+__global__ void pole_learn_kernel(unsigned steps, unsigned isRestart)
 {
 	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
 	unsigned idx = threadIdx.x;
@@ -1128,28 +1156,24 @@ __global__ void pole_learn_kernel(unsigned steps, unsigned first_time)
 	
 	__shared__ float s_s[4 * BLOCK_SIZE];
 	__shared__ unsigned s_action[BLOCK_SIZE];
-//	__shared__ unsigned s_seeds[4 * BLOCK_SIZE];
 	__shared__ float s_Q[2*BLOCK_SIZE];
 
-//	COPY_STATE_TO_SHARED(idx, iGlobal);
-	
-	// randomize state, determine first action and update eligibility trace
-	randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
-	unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
-//	unsigned feature = feature_for_stateGPU(s_s + idx);
-	s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, dc_seeds + iGlobal, feature);
-	update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
+	if (isRestart) {
+		// randomize state, determine first action and update eligibility trace
+		randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
+		unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
+		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, dc_seeds + iGlobal, feature);
+		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
+	} else COPY_STATE_TO_SHARED(idx, iGlobal);
 
 	// loop through specified number of time steps
 	float *s_sidx = s_s + idx;
 	float *s_Qidx = s_Q + idx;
 	for (int t = 0; t < steps; t++) {		
 		float reward = take_action(s_action[idx], s_sidx, s_sidx, BLOCK_SIZE);
-//		unsigned fail = terminal_state(s_s + idx, BLOCK_SIZE);
 		unsigned fail = (reward == REWARD_FAIL);
 		if (fail) randomize_stateGPU(s_sidx, dc_seeds + iGlobal);
 		unsigned feature = feature_for_state(s_sidx, BLOCK_SIZE);
-//		unsigned feature = feature_for_stateGPU(s_sidx);
 		float Q_a = s_Q[idx + s_action[idx] * BLOCK_SIZE];
 		s_action[idx] = choose_actionGPU(s_sidx, dc_theta + iGlobal, s_Qidx, dc_seeds + iGlobal, feature);
 		float Q_a_prime = s_Q[idx + s_action[idx] * BLOCK_SIZE];
@@ -1159,7 +1183,8 @@ __global__ void pole_learn_kernel(unsigned steps, unsigned first_time)
 		update_stored_QGPU(s_Qidx, s_sidx, dc_theta + iGlobal, feature);
 		update_traceGPU(s_action[idx], s_sidx, dc_e + iGlobal, feature);
 	}
-	// state saved for print-out only 
+
+//	if (!nextIsRestart) 
 	COPY_STATE_TO_GLOBAL(idx, iGlobal);
 }
 
@@ -1178,9 +1203,7 @@ __global__ void pole_test_kernel(float *results)
 	
 	randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
 	unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
-//	unsigned feature = feature_for_stateGPU(s_s + idx);
 	s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, feature);
-//	update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
 
 	// run the test using shared memory
 	unsigned num_failures = 0;
@@ -1193,13 +1216,12 @@ __global__ void pole_test_kernel(float *results)
 			randomize_stateGPU(s_sidx, dc_seeds + iGlobal);
 		}
 		unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
-//		unsigned feature = feature_for_stateGPU(s_s + idx);
 		s_action[idx] = best_actionGPU(s_sidx, dc_theta + iGlobal, s_Qidx, feature);
 	}
 	results[iGlobal] = num_failures;
 	
 	// restore agent state
-	COPY_STATE_TO_GLOBAL(idx, iGlobal);
+//	COPY_STATE_TO_GLOBAL(idx, iGlobal);
 }
 
 void run_GPU(RESULTS *r)
@@ -1257,37 +1279,56 @@ void run_GPU(RESULTS *r)
 	
 	CUDA_EVENT_PREPARE;
 	
-	//	printf("_p.restarts_per_share = %d\n", _p.restarts_per_share);
-	for (int i = 0; i < _p.num_restarts; i++) {
-//		printf("restart pole_learning_kernel...\n");
-		CUDA_EVENT_START
-		pole_clear_trace_kernel<<<clearTraceGridDim, clearTraceBlockDim>>>();
-		CUDA_EVENT_STOP(timeClear);
-		
-		CUT_CHECK_ERROR("pole_clear_trace_kernel execution failed");
+#ifdef VERBOSE
+	printf("chunk interval is %d and there are %d chunks in the total time steps of %d\n", 
+			_p.chunk_interval, _p.num_chunks, _p.time_steps);
+	printf("  restart interval is %d which is %d chunks\n", _p.restart_interval, _p.chunks_per_restart);
+	printf("  sharing interval is %d which is %d chunks\n", _p.sharing_interval, _p.chunks_per_share);
+	printf("  testing interval is %d which is %d chunks\n", _p.test_interval, _p.chunks_per_test);
+#endif
+	
+	for (int i = 0; i < _p.num_chunks; i++) {
+#ifdef VERBOSE
+			printf("--------------- new chunk [%d]------------------\n", i);
+#endif
 
+		unsigned isRestart = (0 == (i % _p.chunks_per_restart));
+		if(isRestart){
+//			printf("clearing traces ...\n");
+			// reset traces
+			CUDA_EVENT_START
+			pole_clear_trace_kernel<<<clearTraceGridDim, clearTraceBlockDim>>>();
+			CUDA_EVENT_STOP(timeClear);
+			CUT_CHECK_ERROR("pole_clear_trace_kernel execution failed");
+//			dump_agents_GPU("\n agent state after clearing, before randomizing\n", 0);
+		}
+
+
+		// always do learning for this chunk of time
+//		if (isRestart) printf("randomizing state ...\n");
+//		printf("learning session ...\n");
 		CUDA_EVENT_START
-		pole_learn_kernel<<<gridDim, blockDim>>>(_p.restart_interval, i==0);
+		pole_learn_kernel<<<gridDim, blockDim>>>(_p.chunk_interval, isRestart);
 		CUDA_EVENT_STOP(timeLearn);
-
 		CUT_CHECK_ERROR("pole_learn_kernel execution failed");
+//		dump_agents_GPU("\n agent state after learning\n", 0);
 
-		if ((_p.agent_group_size > 1) && (0 == ((i+1) % _p.restarts_per_share))) {
-//		  printf("<sharing after restart %d>\n", (i+1));
+		if ((_p.agent_group_size > 1) && (0 == ((i+1) % _p.chunks_per_share))) {
+//			printf("sharing ...\n");
 			CUDA_EVENT_START;
 			pole_share_kernel<<<shareGridDim, shareBlockDim, _p.agent_group_size * sizeof(float)>>>();
 			CUDA_EVENT_STOP(timeShare);
-
 			CUT_CHECK_ERROR("pole_share_kernel execution failed");
+//			dump_agents_GPU("\n agent state after sharing\n", 0);
 		}
 		
-		if (0 == ((i+1) % _p.restarts_per_test)) {
-//			printf("pole_test_kernel...\n");
+		if (0 == ((i+1) % _p.chunks_per_test)) {
+//			printf("testing ...\n");
 			CUDA_EVENT_START;
-			pole_test_kernel<<<gridDim, blockDim>>>(d_results + (i / _p.restarts_per_test) * _p.agents);
+			pole_test_kernel<<<gridDim, blockDim>>>(d_results + (i / _p.chunks_per_test) * _p.agents);
 			CUDA_EVENT_STOP(timeTest);
-
 			CUT_CHECK_ERROR("pole_test_kernel execution failed");
+//			dump_agents_GPU("\n agent state after test\n", 0);
 		}
 	}
 	

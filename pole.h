@@ -99,8 +99,15 @@ typedef struct {
 	
 	unsigned restart_interval;	// time steps between random restarts
 	unsigned num_restarts;		// calculated = time_steps / restart_interval
-	unsigned restarts_per_test;	// calculated = num_restarts / num_tests
-	unsigned restarts_per_share;	// calculated = sharing_interval / restart_interval, but not < 1
+
+	unsigned chunk_interval;	// the number of time steps in the smallest value of
+								// sharing_interval, test_interval, restart_interval
+	unsigned num_chunks;		// calculated = time_steps / chunk_interval
+
+	unsigned chunks_per_restart;	// calculated = restart_interval / chunk_interval
+	unsigned chunks_per_share;		// calculated = sharing_interval / chunk_interval
+	unsigned chunks_per_test;		// calculated = test_interval / chunk_interval
+	
 } PARAMS;
 
 typedef struct{
