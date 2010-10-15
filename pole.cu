@@ -1245,42 +1245,68 @@ void run_GPU(RESULTS *r)
 	printf("for clearing trace: %d threads per block, (%d x %d) grid of blocks\n", 
 						clearTraceBlockDim.x, clearTraceGridDim.x, clearTraceGridDim.y);
 #endif
-	unsigned timer;
-	CREATE_TIMER(&timer);
-	START_TIMER(timer);
+
+	float timeClear = 0.0f;
+	float timeLearn = 0.0f;
+	float timeShare = 0.0f;
+	float timeTest = 0.0f;
+	float timeReduce = 0.0f;
+	unsigned timerCPU;
+	CREATE_TIMER(&timerCPU);
+	START_TIMER(timerCPU);
+	
+	CUDA_EVENT_PREPARE;
 	
 	//	printf("_p.restarts_per_share = %d\n", _p.restarts_per_share);
 	for (int i = 0; i < _p.num_restarts; i++) {
 //		printf("restart pole_learning_kernel...\n");
+		CUDA_EVENT_START
 		pole_clear_trace_kernel<<<clearTraceGridDim, clearTraceBlockDim>>>();
+		CUDA_EVENT_STOP(timeClear);
+		
 		CUT_CHECK_ERROR("pole_clear_trace_kernel execution failed");
+
+		CUDA_EVENT_START
 		pole_learn_kernel<<<gridDim, blockDim>>>(_p.restart_interval, i==0);
+		CUDA_EVENT_STOP(timeLearn);
+
 		CUT_CHECK_ERROR("pole_learn_kernel execution failed");
 
 		if ((_p.agent_group_size > 1) && (0 == ((i+1) % _p.restarts_per_share))) {
-		  //		  printf("<sharing after restart %d>\n", (i+1));
+//		  printf("<sharing after restart %d>\n", (i+1));
+			CUDA_EVENT_START;
 			pole_share_kernel<<<shareGridDim, shareBlockDim, _p.agent_group_size * sizeof(float)>>>();
+			CUDA_EVENT_STOP(timeShare);
+
+			CUT_CHECK_ERROR("pole_share_kernel execution failed");
 		}
 		
-      		if (0 == ((i+1) % _p.restarts_per_test)) {
+		if (0 == ((i+1) % _p.restarts_per_test)) {
 //			printf("pole_test_kernel...\n");
-		  pole_test_kernel<<<gridDim, blockDim>>>(d_results + (i / _p.restarts_per_test) * _p.agents);
-		  CUT_CHECK_ERROR("pole_test_kernel execution failed");
+			CUDA_EVENT_START;
+			pole_test_kernel<<<gridDim, blockDim>>>(d_results + (i / _p.restarts_per_test) * _p.agents);
+			CUDA_EVENT_STOP(timeTest);
+
+			CUT_CHECK_ERROR("pole_test_kernel execution failed");
 		}
 	}
-	cudaThreadSynchronize();
-	STOP_TIMER(timer, "run pole kernel on GPU");
 	
-	START_TIMER(timer);
 	// reduce the result array on the device and copy back to the host
+	CUDA_EVENT_START;
 	row_reduce(d_results, _p.agents, _p.num_tests);
 	for (int i = 0; i < _p.num_tests; i++) {
 		CUDA_SAFE_CALL(cudaMemcpy(r->avg_fail + i, d_results + i * _p.agents, sizeof(float), 
 																cudaMemcpyDeviceToHost));
 		r->avg_fail[i] /= _p.agents;
 	}
-	cudaThreadSynchronize();
-	STOP_TIMER(timer, "reduce GPU results and copy data back to host");
+	CUDA_EVENT_STOP(timeReduce);
+	CUDA_EVENT_CLEANUP;
+	STOP_TIMER(timerCPU, "total GPU time");	
+	PRINT_TIME(timeClear, "pole_clear_trace_kernel");
+	PRINT_TIME(timeLearn, "pole_learn_kernel");
+	PRINT_TIME(timeShare, "pole_share_kernel");
+	PRINT_TIME(timeTest, "pole_test_kernel");
+	PRINT_TIME(timeReduce, "pole_reduce_kernel");
 	
 #ifdef DUMP_TERMINAL_AGENT_STATE
 	dump_agents_GPU("--------------------------------------\n       Ending Agent States\n", 0);
