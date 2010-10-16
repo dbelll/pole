@@ -95,14 +95,24 @@ PARAMS read_params(int argc, const char **argv)
 	p.num_tests = p.time_steps / p.test_interval;
 	
 	p.restart_interval = GET_PARAM("RESTART_INTERVAL", p.test_interval);
+	
+	// calculate chunk_interval as smallest of other intervals, or 
 	p.chunk_interval = p.restart_interval;
 	if(p.chunk_interval > p.test_interval) p.chunk_interval = p.test_interval;
 	if(p.chunk_interval > p.sharing_interval) p.chunk_interval = p.sharing_interval;
+	
+	p.chunk_interval = GET_PARAM("CHUNK_INTERVAL", p.chunk_interval);
+	if (p.chunk_interval > p.restart_interval ||
+		p.chunk_interval > p.test_interval ||
+		p.chunk_interval > p.sharing_interval) {
+		printf("Inconsistent arguments: CHUNK_INTERVAL = %d but must be <= all other intervals.\n",
+			   p.chunk_interval);
+		exit(1);
+	}
 
 	// for testing
 //	p.chunk_interval = 1;
 	
-	p.chunk_interval = GET_PARAM("CHUNK_INTERVAL", p.chunk_interval);
 	
 	if (0 != (p.time_steps % p.chunk_interval)) {
 		printf("Inconsistent arguments: TIME_STEPS=%d, but time chunks are calculated to be %d\n", p.time_steps, 
