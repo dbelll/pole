@@ -17,7 +17,7 @@ _e="--EPSILON"
 _g="--GAMMA"
 _l="--LAMBDA"
 
-_parms="$_a=.50 $_e=.00 $_l=.70"
+_parms="$_a=.10 $_e=.00 $_l=.70"
 
 
 _sharing="--SHARING_INTERVAL=256"
