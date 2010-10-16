@@ -626,7 +626,10 @@ float *create_theta(unsigned num_agents, unsigned num_features, unsigned num_act
 //		float r = RandUniform(g_seeds, 1);
 //		theta[i] = (RAND_WGT_MAX - RAND_WGT_MIN) * r + RAND_WGT_MIN;
 //		printf("randome = %7.4f, theta = %7.4f\n", r, theta[i]);
-		theta[i] = (RAND_WGT_MAX - RAND_WGT_MIN) * RandUniform(g_seeds, 1) + RAND_WGT_MIN;
+
+//		theta[i] = (RAND_WGT_MAX - RAND_WGT_MIN) * RandUniform(g_seeds, 1) + RAND_WGT_MIN;
+		
+		theta[i] = 0.0f;
 	}
 	return theta;
 }
