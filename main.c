@@ -59,7 +59,10 @@ PARAMS read_params(int argc, const char **argv)
 	p.agent_group_size = GET_PARAM("AGENT_GROUP_SIZE", 1);
 	p.agents = p.trials * p.agent_group_size;
 	p.time_steps = GET_PARAM("TIME_STEPS", 64);
-	p.sharing_interval = GET_PARAM("SHARING_INTERVAL", 4);
+	p.sharing_interval = GET_PARAM("SHARING_INTERVAL", p.time_steps);
+	
+	// set sharing interval to total time steps if only one agent
+	if (p.agents == 1) p.sharing_interval = p.time_steps;
 	
 	// Total time steps must be an integer number of sharing intervals
 	if (p.agent_group_size > 1 && 0 != (p.time_steps % p.sharing_interval)){
