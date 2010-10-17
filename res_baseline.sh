@@ -1,22 +1,29 @@
 #!/bin/bash
-# Baseline script for res computer
 #
-_trials="--TRIALS=4096"
-_time="--TIME_STEPS=131072"
-_groups="--AGENT_GROUP_SIZE=1"
-_interval="--SHARING_INTERVAL=4"
+# Baseline runs for res computer
+#
+#
+
+_trials="--TRIALS=1024"
+
 _run="--RUN_ON_CPU=0 --RUN_ON_GPU=1"
 _location="./bin/linux/release"
 
-_test="--TEST_INTERVAL=16384 --TEST_REPS=16384"
+_test="--TEST_REPS=8192"
+
+_restart="--RESTART_INTERVAL=8192"
+_sharing="--SHARING_INTERVAL=1024"
+
+_a=0.90
+_e=0.00
+_g=0.90
+_l=0.70
 
 
-_a="--ALPHA"
-_e="--EPSILON"
-_g="--GAMMA"
-_l="--LAMBDA"
+_parms="--ALPHA=$_a --EPSILON=$_e --GAMMA=$_g --LAMBDA=$_l"
+_common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms"
 
-_common="$_trials $_time $_groups $_interval $_run $_test"
-
-$_location/pole $_common $_a=.50 $_e=.00 $_g=.95 $_l=.70
+$_location/pole $_common --AGENT_GROUP_SIZE=4 --TIME_STEPS=131072 --TEST_INTERVAL=4096
+$_location/pole $_common --AGENT_GROUP_SIZE=16 --TIME_STEPS=32768 --TEST_INTERVAL=1024
+$_location/pole $_common --AGENT_GROUP_SIZE=64 --TIME_STEPS=8192 --TEST_INTERVAL=512
 
