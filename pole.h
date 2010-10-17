@@ -18,8 +18,8 @@
 
 
 // range of values for the initial random weights, theta
-#define RAND_WGT_MIN -0.01f
-#define RAND_WGT_MAX 0.0f
+#define RAND_WGT_MIN -1.0f
+#define RAND_WGT_MAX 1.0f
 
 // parameters of the problem and tiling of state space
 // see Brownlee. The pole balancing problem: a benchmark control theory problem. hdl.handle.net (2005)

@@ -166,7 +166,7 @@ __device__ void reset_traceGPU(float *e)
 
 __device__ __host__ unsigned terminal_state(float *s, unsigned stride)
 {
-	unsigned s2 = s[2*stride];
+	float s2 = s[2*stride];
 	return s2 < X_MIN || s2 > X_MAX || s[0] < ANGLE_MIN || s[0] > ANGLE_MAX;
 }
 
