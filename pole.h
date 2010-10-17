@@ -115,6 +115,7 @@ typedef struct{
 	unsigned *seeds;	// seeds for random number generator
 	float *theta;		// weights for each of the features / actions
 	float *e;			// eligibility trace (num_features * num_actions for each agent)
+	float *wgt;			// sum of the weights (alpha * e) used to update each theta value
 	float *ep_data;		// state, action, result, state, action values for this action episode
 	float *s;			// current state (angle, angular velocity, cart position, cart velocity)
 	float *Q;			// Q values for each action, filled when determining best action
