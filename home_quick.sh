@@ -18,7 +18,7 @@ _l="--LAMBDA"
 
 _common="$_trials $_run $_print $_time $_groups $_interval $_test $_ss"
 
-$_location/pole $_common $_a=.50 $_e=.00 $_g=.95 $_l=.70
+$_location/pole $_common $_a=.10 $_e=.00 $_g=.95 $_l=.70
 
 
 
