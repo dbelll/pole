@@ -24,9 +24,10 @@ _parms="$_e=.00 $_l=.70"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms"
 
 
-for _a in 0.05 .10
+for _a in 0.002 0.005
 do
 
 $_location/pole $_common $_grpsize $_time $_test $_restart --ALPHA=$_a
  
 done
+
