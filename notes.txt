@@ -5,6 +5,7 @@ Only keep track of a subset of the thetat values with lambda values.
 Write position, angle, and action to a file for playback.
 
 
+Change test to do restarts?
 
 
 -------
