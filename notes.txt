@@ -7,6 +7,8 @@ Write position, angle, and action to a file for playback.
 
 Change test to do restarts?
 
+Use bit-wise operations instead of % and mod when dividing or taking modulo by a number which is power of 2.
+
 Modify the test to measure average time to failure for the specified number of attempts, subject to a maximum number of time steps
 
 -------

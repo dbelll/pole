@@ -680,9 +680,9 @@ void free_results(RESULTS *r)
 void display_results(const char *str, RESULTS *r)
 {
 	printf("%s \n", str);
-	printf("    TEST  Avg Fails\n");
+	printf("    TEST  Avg Episode\n");
 	for (int i = 0; i < _p.num_tests; i++) {
-		printf("   [%4d]%9.4f\n", i, r->avg_fail[i]);
+		printf("   [%4d]%9.0f\n", i, r->avg_fail[i]);
 	}
 }
 
@@ -722,7 +722,7 @@ void dump_state(float *s, unsigned stride)
 // run tests for all agents and return the average failures
 float run_test(AGENT_DATA *ag)
 {
-	unsigned num_failures = 0;
+	float total_time = 0.0f;
 	
 	// initialize all agent states
 	for (int agent = 0; agent < _p.agents; agent++) {
@@ -739,16 +739,19 @@ float run_test(AGENT_DATA *ag)
 		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
 		ag->action[agent] = best_action(ag->s + agent, ag->theta + agent, ag->Q + agent, _p.agents, _p.num_actions);
 
-		// run the test for specified number of reps
-		for (int t = 0; t < _p.test_reps; t++) {
+		// run the test for up to the specified number of reps or first failure
+		int t;
+		for (t = 0; t < _p.test_reps; t++) {
 			take_action(ag->action[agent], ag->s+agent, ag->s+agent, _p.agents);
 			if (terminal_state(ag->s + agent, _p.agents)){
-				++num_failures;
-				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+//				++num_failures;
+//				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+				break;
 			}
 			// choose best action
 			ag->action[agent] = best_action(ag->s + agent, ag->theta + agent, ag->Q + agent, _p.agents, _p.num_actions);
 		}
+		total_time += t;
 		
 		// restore agent state
 		ag->s[agent] = s0;
@@ -760,7 +763,7 @@ float run_test(AGENT_DATA *ag)
 		ag->Q[agent + _p.agents] = Q1;
 	}
 
-	return num_failures / (float)_p.agents;
+	return total_time / (float)_p.agents;
 }
 
 void clear_traces(AGENT_DATA *ag)
@@ -830,7 +833,6 @@ void share_theta(AGENT_DATA *ag)
 static int _k_ = 1;
 void timing_feedback_header(unsigned n)
 {
-	static int k = 1;
 	_k_ = 1;
 	if (n > 40) {
 		_k_ = (1 + (n-1)/40);
@@ -1222,16 +1224,18 @@ __global__ void pole_test_kernel(float *results)
 	unsigned num_failures = 0;
 	float *s_sidx = s_s + idx;
 	float *s_Qidx = s_Q + idx;
-	for (int t = 0; t < dc_test_reps; t++) {
+	int t = 0;
+	for (t = 0; t < dc_test_reps; t++) {
 		take_action(s_action[idx], s_sidx, s_sidx, BLOCK_SIZE);
 		if (terminal_state(s_sidx, BLOCK_SIZE)) {
-			++num_failures;
-			randomize_stateGPU(s_sidx, dc_seeds + iGlobal);
+//			++num_failures;
+//			randomize_stateGPU(s_sidx, dc_seeds + iGlobal);
+			break;
 		}
 		unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
 		s_action[idx] = best_actionGPU(s_sidx, dc_theta + iGlobal, s_Qidx, feature);
 	}
-	results[iGlobal] = num_failures;
+	results[iGlobal] = t;
 	
 	// restore agent state
 //	COPY_STATE_TO_GLOBAL(idx, iGlobal);
