@@ -167,9 +167,25 @@ __device__ void reset_traceGPU(float *e)
 __device__ __host__ unsigned terminal_state(float *s, unsigned stride)
 {
 	float s2 = s[2*stride];
+<<<<<<< HEAD
 	return s2 < X_MIN || s2 > X_MAX || s[0] < ANGLE_MIN || s[0] > ANGLE_MAX;
+=======
+	return (s2 < X_MIN) || (s2 > X_MAX) || (s[0] < ANGLE_MIN) || (s[0] > ANGLE_MAX);
+>>>>>>> weighted
 }
 
+__host__ unsigned terminal_stateLog(float *s, unsigned stride)
+{
+	float s2 = s[2*stride];
+	printf("X = %7.4f, Angle = %7.4f\n", s2, s[0]);
+	printf("s2 < X_MIN?");
+	printf((s2 < X_MIN) ? "YES" : "NO");
+	printf("s2 > X_MAX?");
+	printf((s2 > X_MAX) ? "YES" : "NO");
+	unsigned result = (s2 < X_MIN) || (s2 > X_MAX) || (s[0] < ANGLE_MIN) || (s[0] > ANGLE_MAX);
+	printf("result is %d\n", result);
+	return (s2 < X_MIN) || (s2 > X_MAX) || (s[0] < ANGLE_MIN) || (s[0] > ANGLE_MAX);
+}
 
 
 // take an action from the current state, s, returning the reward and saving the new state in s_prime
@@ -585,6 +601,14 @@ void dump_agent(AGENT_DATA *ag, unsigned agent)
 		(action == ag->action[agent]) ? printf("-->") : printf("   ");
 		printf("%3d  %9.6f\n", action, ag->Q[agent + action * _p.agents]);
 	}
+	if (terminal_stateLog(ag->s + agent, _p.agents)) {
+		printf("******* In terminal state! *********\n");
+	}else {
+		printf("****** not in terminal state ******\n");
+		printf("        MIN   Actual  Max\n");
+		printf("    X %7.4f %7.4f %7.4f\n", X_MIN, ag->s[agent + 2 *_p.agents], X_MAX);
+		printf("Angle %7.4f %7.4f %7.4f\n", ANGLE_MIN, ag->s[agent], ANGLE_MAX);
+	}
 	printf("\n");
 }
 
@@ -624,7 +648,14 @@ float *create_theta(unsigned num_agents, unsigned num_features, unsigned num_act
 //		float r = RandUniform(g_seeds, 1);
 //		theta[i] = (RAND_WGT_MAX - RAND_WGT_MIN) * r + RAND_WGT_MIN;
 //		printf("randome = %7.4f, theta = %7.4f\n", r, theta[i]);
+<<<<<<< HEAD
 		theta[i] = (RAND_WGT_MAX - RAND_WGT_MIN) * RandUniform(g_seeds, 1) + RAND_WGT_MIN;
+=======
+
+		theta[i] = (RAND_WGT_MAX - RAND_WGT_MIN) * RandUniform(g_seeds, 1) + RAND_WGT_MIN;
+		
+//		theta[i] = 0.0f;
+>>>>>>> weighted
 	}
 	return theta;
 }
@@ -642,6 +673,22 @@ float *create_e(unsigned num_agents, unsigned num_features, unsigned num_actions
 	return e;
 }
 
+<<<<<<< HEAD
+=======
+// initial wgt's set to 0.0f
+float *create_wgt(unsigned num_agents, unsigned num_features, unsigned num_actions)
+{
+#ifdef VERBOSE
+	printf("create_wgt for %d agents and %d features and %d actions\n", num_agents, num_features, num_actions);
+#endif
+	float *wgt = (float *)malloc(num_agents * num_features * num_actions * sizeof(float));
+	for (int i = 0; i < num_agents * num_features * num_actions; i++) {
+		wgt[i] = INITIAL_WGT_FOR_SHARING;
+	}
+	return wgt;
+}
+
+>>>>>>> weighted
 // initial random states
 float *create_states(unsigned num_agents, unsigned *seeds)
 {
@@ -1246,6 +1293,9 @@ void run_GPU(RESULTS *r)
 #ifdef VERBOSE
 	printf("\n==============================================\nRunning on GPU...\n");
 #endif
+
+//	printf("X_MIN = %7.4f X_MAX = %7.4f, ANGLE_MIN=%7.4f ANGLE_MAX=%7.4f\n",
+//		X_MIN, X_MAX, ANGLE_MIN, ANGLE_MAX);
 
 	// on entry the device constant pointers have been initialized to agent's theta, 
 	// eligibility trace, and state values
