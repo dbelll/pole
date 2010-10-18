@@ -86,6 +86,7 @@ PARAMS read_params(int argc, const char **argv)
 	p.run_on_CPU = GET_PARAM("RUN_ON_CPU", 1);
 	p.run_on_GPU = GET_PARAM("RUN_ON_GPU", 1);
 	p.no_print = PARAM_PRESENT("NO_PRINT");
+	p.dump1 = PARAM_PRESENT("DUMP1");
 	
 	p.state_size = NUM_STATE_VALUES;
 	p.num_actions = NUM_ACTIONS;

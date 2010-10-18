@@ -25,19 +25,19 @@
 // see Brownlee. The pole balancing problem: a benchmark control theory problem. hdl.handle.net (2005)
 #define ANGLE_MAX .209f
 #define ANGLE_MIN (-ANGLE_MAX)
-#define ANGLE_DIV 3
+#define ANGLE_DIV 5
 
 #define ANGLE_VEL_MAX .05f
 #define ANGLE_VEL_MIN (-ANGLE_VEL_MAX)
-#define ANGLE_VEL_DIV 2
+#define ANGLE_VEL_DIV 4
 
 #define X_MAX 2.400f
 #define X_MIN (-X_MAX)
-#define X_DIV 3
+#define X_DIV 5
 
 #define X_VEL_MAX .5f
 #define X_VEL_MIN (-X_VEL_MAX)
-#define X_VEL_DIV 2
+#define X_VEL_DIV 4
 
 // number of standard deviations equal to the maximum value for determining initial state values
 //#define SD_FOR_MAX 2.0f
@@ -67,6 +67,7 @@
 #pragma mark typedefs
 
 typedef struct {
+	unsigned dump1;				// flag to dump one agent from GPU at end of run
 	unsigned trials;
 	unsigned time_steps;
 	unsigned agent_group_size;

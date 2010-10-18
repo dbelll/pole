@@ -1,6 +1,6 @@
 Pass a pointer to the AGENT_DATA and PARAMS to the routines that run on host and device.
 
-Only keep track of a subset of the thetat values with lambda values.
+Only keep track of a subset of the theta values with lambda values.
 
 Write position, angle, and action to a file for playback.
 

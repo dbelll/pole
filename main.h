@@ -12,11 +12,11 @@
 
 // defines used everywhere
 
-//#define VERBOSE
+#define VERBOSE
 //#define DUMP_INITIAL_AGENTS
 //#define DUMP_AGENT_BEFORE_SHARING
 //#define DUMP_AGENT_END_OF_CHUNK
-//#define AGENT_DUMP_INCLUDE_THETA_E
+#define AGENT_DUMP_INCLUDE_THETA_E
 
 //#define DUMP_AGENT_ACTIONS
 //#define DUMP_THETA_UPDATE_CALCULATIONS
@@ -27,5 +27,6 @@
 //#define DUMP_AGENT_STATE_ON_FAILURE
 
 //#define DUMP_TERMINAL_AGENT_STATE
+//#define DUMP_ONE_GPU_AGENT_AT_END
 
 #endif

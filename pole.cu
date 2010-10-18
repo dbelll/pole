@@ -597,6 +597,12 @@ void dump_agents(const char *str, AGENT_DATA *ag)
 	}
 }
 
+void dump_one_agent(const char *str, AGENT_DATA *ag)
+{
+	printf("%s\n", str);
+	dump_agent(ag, 0);
+}
+
 // generate random seeds for the sepecified number of agents
 unsigned *create_seeds(unsigned num_agents)
 {
@@ -1030,6 +1036,12 @@ void dump_agents_GPU(const char *str, unsigned check)
 	free_agentsCPU(agGPUcopy);
 }
 
+void dump_one_agent_GPU(const char *str)
+{
+	AGENT_DATA *agGPUcopy = copy_GPU_agents();
+	dump_one_agent(str, agGPUcopy);
+	free_agentsCPU(agGPUcopy);
+}
 /*
 	Initializes agent data on GPU by copying the CPU data.
 	Also initialized constant memory pointers to point to the GPU data.
@@ -1352,6 +1364,10 @@ void run_GPU(RESULTS *r)
 #ifdef DUMP_TERMINAL_AGENT_STATE
 	dump_agents_GPU("--------------------------------------\n       Ending Agent States\n", 0);
 #endif
+
+	if (_p.dump1) {
+		dump_one_agent_GPU("----------------------------------------------\n      Agent 0 Ending State\n");
+	}
 
 	if (d_results) cudaFree(d_results);
 }
