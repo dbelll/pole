@@ -11,7 +11,7 @@
 #pragma mark -
 #pragma mark Problem Constants
 
-#define BLOCK_SIZE 128
+#define BLOCK_SIZE 256
 
 //#define MAX_TIME_STEPS_PER_LAUNCH 16384
 
