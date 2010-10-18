@@ -20,8 +20,10 @@ _e=.00
 _l=.70
 
 
+
 _parms="--EPSILON=$_e --LAMBDA=$_l --ALPHA=$_a"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms"
 
 $_location/pole $_common $_grpsize $_time $_test $_restart
+
 

@@ -12,7 +12,7 @@ _location="./bin/linux/release"
 _test="--TEST_REPS=8192"
 
 _restart="--RESTART_INTERVAL=8192"
-_sharing="--SHARING_INTERVAL=1024"
+_sharing="--SHARING_INTERVAL=2048"
 
 _a=0.90
 _e=0.00
