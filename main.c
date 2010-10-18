@@ -93,7 +93,6 @@ PARAMS read_params(int argc, const char **argv)
 	
 	p.test_interval = GET_PARAM("TEST_INTERVAL", p.time_steps);
 	p.test_reps = GET_PARAM("TEST_REPS", p.test_interval);
-	p.test_max_episode = GET_PARAM("TEST_MAX_EP", 16384);
 	p.num_tests = p.time_steps / p.test_interval;
 	if (p.test_interval > p.time_steps){
 		printf("Inconsistent arguments: TEST_INTERVAL = %d is greater than TIME_STEPS = %d.\n",

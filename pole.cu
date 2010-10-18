@@ -850,10 +850,10 @@ void timing_feedback_dot(unsigned i)
 
 void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 {
-	unsigned tot_fails = 0;
-#ifdef DUMP_INTERMEDIATE_FAIL_COUNTS
-	unsigned prev_tot_fails = 0;
-#endif
+//	unsigned tot_fails = 0;
+//#ifdef DUMP_INTERMEDIATE_FAIL_COUNTS
+//	unsigned prev_tot_fails = 0;
+//#endif
 
 	// on entry the agent's theta, eligibility trace, and state values have been initialized
 	timing_feedback_header(_p.num_chunks);
@@ -1221,7 +1221,7 @@ __global__ void pole_test_kernel(float *results)
 	s_action[idx] = best_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, feature);
 
 	// run the test using shared memory
-	unsigned num_failures = 0;
+//	unsigned num_failures = 0;
 	float *s_sidx = s_s + idx;
 	float *s_Qidx = s_Q + idx;
 	int t = 0;
