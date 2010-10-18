@@ -16,6 +16,7 @@ Average the theta values across all agents
 			Exclude values that have never been updated
 			Give extra weight to agents that 'own' a section of the state space.
 		Keep track of the 'update weight' which is the sum of the lambda amounts used to update each theta, and when sharing use a weighted average based on the 'update weights' 
+		Use update weights with initial 0's for all theta's all agents.  Then, the only values theta values will be from failures.
 	
 record all state, action, result, state action values for the episode, then have all agents update their parameters by using the same
 
@@ -29,3 +30,11 @@ Use different re-start intervals
 
 Assign a wider range for initial states
 
+
+------------------------------
+Optimization
+------------------------------
+Use a circular buffer for eligibity traces and feature number --- This would increase non-coalesced global memory accesses, many not work well.
+Cache the last feature and <other values>  check the cache first before going to global memory for the values.
+
+Try using epsilon - allow threads to learn more

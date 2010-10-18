@@ -443,7 +443,7 @@ __host__ unsigned choose_action(float *s, float *theta, float epsilon, unsigned 
 }
 
 /*
-	choose action on GPU
+	choose action on GPU, store Q values for all actions from current state in Q
 	strides are assumed to be BLOCK_SIZE for s, Q, and seeds and dc_agents theta
 */
 __device__ unsigned choose_actionGPU(float *s, float *theta, float *Q, unsigned *seeds, unsigned feature)
@@ -1175,17 +1175,21 @@ __global__ void pole_learn_kernel(unsigned steps, unsigned isRestart)
 		randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
 		unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
 		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, dc_seeds + iGlobal, feature);
+		// s_Q contains Q values for each action from the current state
+		// s_action contains the chosen action to be taken from the current state
 		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
 	} else COPY_STATE_TO_SHARED(idx, iGlobal);
 
 	// loop through specified number of time steps
 	float *s_sidx = s_s + idx;
 	float *s_Qidx = s_Q + idx;
-	for (int t = 0; t < steps; t++) {		
+	for (int t = 0; t < steps; t++) {
+		// take the action stored in s_action
 		float reward = take_action(s_action[idx], s_sidx, s_sidx, BLOCK_SIZE);
 		unsigned fail = (reward == REWARD_FAIL);
 		if (fail) randomize_stateGPU(s_sidx, dc_seeds + iGlobal);
 		unsigned feature = feature_for_state(s_sidx, BLOCK_SIZE);
+		// now may be in a different state
 		float Q_a = s_Q[idx + s_action[idx] * BLOCK_SIZE];
 		s_action[idx] = choose_actionGPU(s_sidx, dc_theta + iGlobal, s_Qidx, dc_seeds + iGlobal, feature);
 		float Q_a_prime = s_Q[idx + s_action[idx] * BLOCK_SIZE];
