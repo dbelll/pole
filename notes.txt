@@ -7,6 +7,7 @@ Write position, angle, and action to a file for playback.
 
 Change test to do restarts?
 
+Modify the test to measure average time to failure for the specified number of attempts, subject to a maximum number of time steps
 
 -------
 Sharing
@@ -20,6 +21,7 @@ Average the theta values across all agents
 	
 record all state, action, result, state action values for the episode, then have all agents update their parameters by using the same
 
+Have short restart periods that are handled within the learning kernel.  Force a randomization of the state similar to after a failure for all states within.
 
 ---------------
 Differentiation
