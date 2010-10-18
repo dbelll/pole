@@ -726,9 +726,6 @@ float run_test(AGENT_DATA *ag)
 	
 	// initialize all agent states
 	for (int agent = 0; agent < _p.agents; agent++) {
-//		printf("agent %d before testing...\n", agent);
-//		dump_agent(ag, agent);
-//		unsigned old_num_failures = num_failures;
 		
 		// save agent state prior to testing
 		float s0 = ag->s[agent];
@@ -736,17 +733,11 @@ float run_test(AGENT_DATA *ag)
 		float s2 = ag->s[agent + 2*_p.agents];
 		float s3 = ag->s[agent + 3*_p.agents];
 		unsigned act = ag->action[agent];
-//		unsigned seed0 = ag->seeds[agent];
-//		unsigned seed1 = ag->seeds[agent + _p.agents];
-//		unsigned seed2 = ag->seeds[agent + 2 * _p.agents];
-//		unsigned seed3 = ag->seeds[agent + 3 * _p.agents];
 		float Q0 = ag->Q[agent];
 		float Q1 = ag->Q[agent + _p.agents];
 		
 		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
 		ag->action[agent] = best_action(ag->s + agent, ag->theta + agent, ag->Q + agent, _p.agents, _p.num_actions);
-//		choose_action(ag->s + agent, ag->theta + agent, 0.0f, _p.agents, ag->Q + agent, 
-//																_p.num_actions, ag->seeds + agent);
 
 		// run the test for specified number of reps
 		for (int t = 0; t < _p.test_reps; t++) {
@@ -765,20 +756,9 @@ float run_test(AGENT_DATA *ag)
 		ag->s[agent + 2*_p.agents] = s2;
 		ag->s[agent + 3*_p.agents] = s3;
 		act = ag->action[agent] = act;
-//		ag->seeds[agent] = seed0;
-//		ag->seeds[agent + _p.agents] = seed1;
-//		ag->seeds[agent + 2 * _p.agents] = seed2;
-//		ag->seeds[agent + 3 * _p.agents] = seed3;
 		ag->Q[agent] = Q0;
 		ag->Q[agent + _p.agents] = Q1;
-		
-//		printf("after testing...\n");
-//		dump_agent(ag, agent);
-
-//		printf("agent %d failues = %d\n", agent, num_failures - old_num_failures);
 	}
-
-
 
 	return num_failures / (float)_p.agents;
 }
@@ -847,6 +827,25 @@ void share_theta(AGENT_DATA *ag)
 	}
 }
 
+static int _k_ = 1;
+void timing_feedback_header(unsigned n)
+{
+	static int k = 1;
+	_k_ = 1;
+	if (n > 40) {
+		_k_ = (1 + (n-1)/40);
+	}
+	for (int i = 0; i < (n/_k_); i++) {
+		printf("-");
+	}
+	printf("|\n");
+}
+
+void timing_feedback_dot(unsigned i)
+{
+	if (0 == (i+1) % _k_) { printf("."); fflush(NULL); }
+}
+
 void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 {
 	unsigned tot_fails = 0;
@@ -855,16 +854,16 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 #endif
 
 	// on entry the agent's theta, eligibility trace, and state values have been initialized
-	
-	int k = 1;
-	if (_p.num_chunks > 40) {
-		k = 1 + (_p.num_chunks-1)/40;
-	}
-	
-	for (int i = 0; i < (_p.num_chunks / k); i++) {
-		printf("-");
-	}
-	printf("|\n");
+	timing_feedback_header(_p.num_chunks);
+//	int k = 1;
+//	if (_p.num_chunks > 40) {
+//		k = 1 + (_p.num_chunks-1)/40;
+//	}
+//	
+//	for (int i = 0; i < (_p.num_chunks / k); i++) {
+//		printf("-");
+//	}
+//	printf("|\n");
 
 #ifdef VERBOSE
 			printf("%d chunks per share\n", _p.chunks_per_share);
@@ -874,9 +873,8 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 #ifdef VERBOSE
 			printf("--------------- new chunk [%d]------------------\n", i);
 #endif
-		// print progress indicator dots
-		if (0 == (i+1) % k) { printf("."); fflush(NULL); }
-
+		timing_feedback_dot(i);
+		
 		if(0 == (i % _p.chunks_per_restart)){
 
 #ifdef VERBOSE
@@ -1153,12 +1151,11 @@ __global__ void pole_clear_trace_kernel()
 /*
 	Do a learning session for specified number of steps.
 	On entry, the theta values are valid from prior learning episodes.
-	e values should all be set to 0
 	
-		First, randomize the state,
+		First, randomize the state if this is a restart,
 		Then repeat the learning process for specified number of iterations
 	
-	Ending state is not saved.
+	Ending state is saved.
 */
 __global__ void pole_learn_kernel(unsigned steps, unsigned isRestart)
 {
@@ -1303,7 +1300,9 @@ void run_GPU(RESULTS *r)
 	printf("  testing interval is %d which is %d chunks\n", _p.test_interval, _p.chunks_per_test);
 #endif
 	
+	timing_feedback_header(_p.num_chunks);
 	for (int i = 0; i < _p.num_chunks; i++) {
+		timing_feedback_dot(i);
 #ifdef VERBOSE
 			printf("--------------- new chunk [%d]------------------\n", i);
 #endif
@@ -1347,6 +1346,7 @@ void run_GPU(RESULTS *r)
 //			dump_agents_GPU("\n agent state after test\n", 0);
 		}
 	}
+	printf("\n");
 	
 	// reduce the result array on the device and copy back to the host
 	CUDA_EVENT_START;

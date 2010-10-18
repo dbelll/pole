@@ -94,7 +94,11 @@ PARAMS read_params(int argc, const char **argv)
 	p.test_interval = GET_PARAM("TEST_INTERVAL", p.time_steps);
 	p.test_reps = GET_PARAM("TEST_REPS", p.test_interval);
 	p.num_tests = p.time_steps / p.test_interval;
-	
+	if (p.test_interval > p.time_steps){
+		printf("Inconsistent arguments: TEST_INTERVAL = %d is greater than TIME_STEPS = %d.\n",
+			   p.test_interval, p.time_steps);
+		exit(1);
+	}
 	p.restart_interval = GET_PARAM("RESTART_INTERVAL", p.test_interval);
 	
 	// calculate chunk_interval as smallest of other intervals, or 
