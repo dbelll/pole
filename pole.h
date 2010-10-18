@@ -96,6 +96,7 @@ typedef struct {
 	unsigned state_size;		// hard coded parameter = 4
 	unsigned test_interval;		// number of time steps between testing
 	unsigned test_reps;			// number of reps in each test
+	unsigned test_max_episode;	// maxium episode to be counted when doing a test
 	unsigned num_tests;			// calculated = time_steps / test_interval
 	
 	unsigned restart_interval;	// time steps between random restarts
