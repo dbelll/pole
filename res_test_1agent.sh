@@ -18,16 +18,18 @@ _time="--TIME_STEPS=262144"
 
 _grpsize="--AGENT_GROUP_SIZE=1"
 
-#_a=.10
+_a=.10
 _e=.00
 _l=.70
 
 
-for _a in 0.005 0.01 .05
-do
+#for _a in 0.005 0.01 .05
+#do
+
 _parms="--EPSILON=$_e --LAMBDA=$_l --ALPHA=$_a"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
 
 $_location/pole $_common $_grpsize $_time $_test $_restart
-done
+
+#done
 
