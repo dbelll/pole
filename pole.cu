@@ -876,7 +876,8 @@ void share_theta(AGENT_DATA *ag)
 			if (block_wgt > 0.0f) {
 				for (int a = agent0; a < agent0 + _p.agent_group_size; a++) {
 					ag->theta[a] = block_theta;
-					ag->wgt[a] = block_wgt;
+//					ag->wgt[a] = block_wgt;
+					ag->wgt[a] = 0.0f;
 				}
 			}
 		}
@@ -1207,7 +1208,8 @@ __global__ void pole_share_kernel()
 	
 	if (s_wgt[idx] > 0.0f) {
 		s_theta[idx] /= s_wgt[idx];
-		s_wgt[idx] /= dc_agent_group_size;
+//		s_wgt[idx] /= dc_agent_group_size;
+		s_wgt[idx] = 0.0f;
 	}else {
 		s_theta[idx] = old_theta;
 	}
