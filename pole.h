@@ -18,10 +18,10 @@
 
 
 // range of values for the initial random weights, theta
-#define RAND_WGT_MIN 0.0f
-#define RAND_WGT_MAX 1.0f
+//#define RAND_WGT_MIN 0.5f
+//#define RAND_WGT_MAX 1.0f
 
-#define INITIAL_WGT_FOR_SHARING 1.0f
+//#define INITIAL_WGT_FOR_SHARING 0.5f
 
 // parameters of the problem and tiling of state space
 // see Brownlee. The pole balancing problem: a benchmark control theory problem. hdl.handle.net (2005)
@@ -75,6 +75,9 @@ typedef struct {
 	unsigned agent_group_size;
 
 	unsigned sharing_interval;		// SHARING_INTERVAL command-line parameter
+	float initial_sharing_wgt;
+	float initial_theta_min;
+	float initial_theta_max;
 
 	unsigned agents;			// calculated total number of agents
 	unsigned num_sharing_intervals;	// calculated number of sharing intervals

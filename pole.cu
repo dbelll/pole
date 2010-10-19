@@ -579,7 +579,7 @@ void dump_agent(AGENT_DATA *ag, unsigned agent)
 	printf("   seeds = %u, %u, %u, %u\n", ag->seeds[agent], ag->seeds[agent + _p.agents], 
 									   ag->seeds[agent + 2*_p.agents], ag->seeds[agent + 3*_p.agents]);
 #ifdef AGENT_DUMP_INCLUDE_THETA_E
-	printf("FEATURE       ACTION    THETA       E  \n");
+	printf("FEATURE       ACTION    THETA       E         WGT\n");
 	for (int f = 0; f < _p.num_features; f++) {
 		for (int action = 0; action < _p.num_actions; action++) {
 			printf("%7d %4x %7d %9.4f %9.4f %9.2f\n", f, divs_for_feature(f), action, 
@@ -639,7 +639,7 @@ unsigned *create_seeds(unsigned num_agents)
 }
 
 // create wgts set initially to random values between RAND_WGT_MIN and RAND_WGT_MAX
-float *create_theta(unsigned num_agents, unsigned num_features, unsigned num_actions)
+float *create_theta(unsigned num_agents, unsigned num_features, unsigned num_actions, float theta_min, float theta_max)
 {
 #ifdef VERBOSE
 	printf("create_theta for %d agents and %d features\n", num_agents, num_features);
@@ -650,7 +650,7 @@ float *create_theta(unsigned num_agents, unsigned num_features, unsigned num_act
 //		theta[i] = (RAND_WGT_MAX - RAND_WGT_MIN) * r + RAND_WGT_MIN;
 //		printf("randome = %7.4f, theta = %7.4f\n", r, theta[i]);
 
-		theta[i] = (RAND_WGT_MAX - RAND_WGT_MIN) * RandUniform(g_seeds, 1) + RAND_WGT_MIN;
+		theta[i] = (theta_max - theta_min) * RandUniform(g_seeds, 1) + theta_min;
 		
 	}
 	return theta;
@@ -670,14 +670,14 @@ float *create_e(unsigned num_agents, unsigned num_features, unsigned num_actions
 }
 
 // initial wgt's set to 0.0f
-float *create_wgt(unsigned num_agents, unsigned num_features, unsigned num_actions)
+float *create_wgt(unsigned num_agents, unsigned num_features, unsigned num_actions, float initial_sharing_wgt)
 {
 #ifdef VERBOSE
 	printf("create_wgt for %d agents and %d features and %d actions\n", num_agents, num_features, num_actions);
 #endif
 	float *wgt = (float *)malloc(num_agents * num_features * num_actions * sizeof(float));
 	for (int i = 0; i < num_agents * num_features * num_actions; i++) {
-		wgt[i] = INITIAL_WGT_FOR_SHARING;
+		wgt[i] = initial_sharing_wgt;
 	}
 	return wgt;
 }
@@ -743,9 +743,9 @@ AGENT_DATA *initialize_agentsCPU()
 #endif
 	AGENT_DATA *ag = (AGENT_DATA *)malloc(sizeof(AGENT_DATA));
 	ag->seeds = create_seeds(_p.agents);
-	ag->theta = create_theta(_p.agents, _p.num_features, _p.num_actions);
+	ag->theta = create_theta(_p.agents, _p.num_features, _p.num_actions, _p.initial_theta_min, _p.initial_theta_max);
 	ag->e = create_e(_p.agents, _p.num_features, _p.num_actions);
-	ag->wgt = create_wgt(_p.agents, _p.num_features, _p.num_actions);
+	ag->wgt = create_wgt(_p.agents, _p.num_features, _p.num_actions, _p.initial_sharing_wgt);
 //	unsigned rows = _p.agents * ((_p.state_size + 2) * _p.sharing_interval + _p.state_size + 1);
 //	ag->ep_data = (float *)malloc(rows * sizeof(float));
 	ag->s = create_states(_p.agents, ag->seeds);
