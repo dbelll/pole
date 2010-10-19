@@ -43,6 +43,7 @@ __constant__ unsigned dc_end_time;
 __constant__ unsigned *dc_seeds;
 __constant__ float *dc_theta;
 __constant__ float *dc_e;
+__constant__ float *dc_wgt;
 __constant__ float *dc_s;
 __constant__ float *dc_Q;
 __constant__ unsigned *dc_action;
@@ -51,6 +52,7 @@ static AGENT_DATA *last_CPU_agent_dump;
 static unsigned *d_seeds;
 static float *d_theta;
 static float *d_e;
+static float *d_wgt;
 static float *d_s;
 static float *d_Q;
 static unsigned *d_action;
@@ -93,15 +95,15 @@ void set_constant_params(PARAMS p)
 }
 
 // copy agent data pointers (device pointers) to constant memory on device
-void set_constant_pointers(AGENT_DATA *ag)
-{
-	cudaMemcpyToSymbol("dc_seeds", &ag->seeds, sizeof(unsigned *));
-	cudaMemcpyToSymbol("dc_theta", &ag->theta, sizeof(float *));
-	cudaMemcpyToSymbol("dc_e", &ag->e, sizeof(float *));
-	cudaMemcpyToSymbol("dc_s", &ag->s, sizeof(float *));
-	cudaMemcpyToSymbol("dc_Q", &ag->Q, sizeof(float *));
-	cudaMemcpyToSymbol("dc_action", &ag->action, sizeof(unsigned *));
-}
+//void set_constant_pointers(AGENT_DATA *ag)
+//{
+//	cudaMemcpyToSymbol("dc_seeds", &ag->seeds, sizeof(unsigned *));
+//	cudaMemcpyToSymbol("dc_theta", &ag->theta, sizeof(float *));
+//	cudaMemcpyToSymbol("dc_e", &ag->e, sizeof(float *));
+//	cudaMemcpyToSymbol("dc_s", &ag->s, sizeof(float *));
+//	cudaMemcpyToSymbol("dc_Q", &ag->Q, sizeof(float *));
+//	cudaMemcpyToSymbol("dc_action", &ag->action, sizeof(unsigned *));
+//}
 
 
 /*
@@ -167,9 +169,21 @@ __device__ void reset_traceGPU(float *e)
 __device__ __host__ unsigned terminal_state(float *s, unsigned stride)
 {
 	float s2 = s[2*stride];
-	return s2 < X_MIN || s2 > X_MAX || s[0] < ANGLE_MIN || s[0] > ANGLE_MAX;
+	return (s2 < X_MIN) || (s2 > X_MAX) || (s[0] < ANGLE_MIN) || (s[0] > ANGLE_MAX);
 }
 
+__host__ unsigned terminal_stateLog(float *s, unsigned stride)
+{
+	float s2 = s[2*stride];
+	printf("X = %7.4f, Angle = %7.4f\n", s2, s[0]);
+	printf("s2 < X_MIN?");
+	printf((s2 < X_MIN) ? "YES" : "NO");
+	printf("s2 > X_MAX?");
+	printf((s2 > X_MAX) ? "YES" : "NO");
+	unsigned result = (s2 < X_MIN) || (s2 > X_MAX) || (s[0] < ANGLE_MIN) || (s[0] > ANGLE_MAX);
+	printf("result is %d\n", result);
+	return (s2 < X_MIN) || (s2 > X_MAX) || (s[0] < ANGLE_MIN) || (s[0] > ANGLE_MAX);
+}
 
 
 // take an action from the current state, s, returning the reward and saving the new state in s_prime
@@ -524,7 +538,7 @@ __device__ void update_traceGPU(unsigned action, float *s, float *e, unsigned fe
 
 // Update theta values for one agent
 // theta = theta + alpha * delta * eligibility trace
-__host__ void update_thetas(float *theta, float *e, float alpha, float delta, unsigned num_features, unsigned stride, unsigned num_actions)
+__host__ void update_thetas(float *theta, float *e, float *wgt, float alpha, float delta, unsigned num_features, unsigned stride, unsigned num_actions)
 {
 //#ifdef DUMP_THETA_UPDATE_CALCULATIONS
 //	printf("updating thetas for alpha = %9.6f, delta = %9.6f\n", alpha, delta);
@@ -534,6 +548,7 @@ __host__ void update_thetas(float *theta, float *e, float alpha, float delta, un
 //			printf("   feature-action %5d(%4x) %3d with trace %9.6f changed from %9.6f", (fa/num_actions), divs_for_feature(fa/num_actions), (fa%num_actions), e[fa*stride], theta[fa*stride]);
 //#endif
 			theta[fa] += alpha * delta * e[fa];
+			wgt[fa] += alpha * e[fa];			
 //#ifdef DUMP_THETA_UPDATE_CALCULATIONS
 //			printf(" to %9.6f\n", theta[fa*stride]);
 //#endif
@@ -544,11 +559,12 @@ __host__ void update_thetas(float *theta, float *e, float alpha, float delta, un
 	Update thetas on GPU
 	Stride is assumed to be dc_agents for theta and e
 */
-__device__ void update_thetasGPU(float *theta, float *e, float delta)
+__device__ void update_thetasGPU(float *theta, float *e, float *wgt, float delta)
 {
 	float ad = dc_alpha * delta;
 	for (int fa = 0; fa < dc_num_featuresXactionsXagents; fa += dc_agents) {
-			theta[fa] += ad * e[fa];
+		theta[fa] += ad * e[fa];
+		wgt[fa] += dc_alpha * e[fa];
 	}
 }
 
@@ -563,12 +579,13 @@ void dump_agent(AGENT_DATA *ag, unsigned agent)
 	printf("   seeds = %u, %u, %u, %u\n", ag->seeds[agent], ag->seeds[agent + _p.agents], 
 									   ag->seeds[agent + 2*_p.agents], ag->seeds[agent + 3*_p.agents]);
 #ifdef AGENT_DUMP_INCLUDE_THETA_E
-	printf("FEATURE       ACTION    THETA       E  \n");
+	printf("FEATURE       ACTION    THETA       E         WGT\n");
 	for (int f = 0; f < _p.num_features; f++) {
 		for (int action = 0; action < _p.num_actions; action++) {
-			printf("%7d %4x %7d %9.6f %9.6f\n", f, divs_for_feature(f), action, 
+			printf("%7d %4x %7d %9.4f %9.4f %9.2f\n", f, divs_for_feature(f), action, 
 				   ag->theta[agent + (action + f * _p.num_actions) * _p.agents], 
-				   ag->e[agent + (action + f * _p.num_actions) * _p.agents]);
+				   ag->e[agent + (action + f * _p.num_actions) * _p.agents],
+				   ag->wgt[agent + (action + f * _p.num_actions) * _p.agents]);
 		}
 	}
 #endif
@@ -585,6 +602,14 @@ void dump_agent(AGENT_DATA *ag, unsigned agent)
 		(action == ag->action[agent]) ? printf("-->") : printf("   ");
 		printf("%3d  %9.6f\n", action, ag->Q[agent + action * _p.agents]);
 	}
+//	if (terminal_stateLog(ag->s + agent, _p.agents)) {
+//		printf("******* In terminal state! *********\n");
+//	}else {
+//		printf("****** not in terminal state ******\n");
+//		printf("        MIN   Actual  Max\n");
+//		printf("    X %7.4f %7.4f %7.4f\n", X_MIN, ag->s[agent + 2 *_p.agents], X_MAX);
+//		printf("Angle %7.4f %7.4f %7.4f\n", ANGLE_MIN, ag->s[agent], ANGLE_MAX);
+//	}
 	printf("\n");
 }
 
@@ -614,7 +639,7 @@ unsigned *create_seeds(unsigned num_agents)
 }
 
 // create wgts set initially to random values between RAND_WGT_MIN and RAND_WGT_MAX
-float *create_theta(unsigned num_agents, unsigned num_features, unsigned num_actions)
+float *create_theta(unsigned num_agents, unsigned num_features, unsigned num_actions, float theta_min, float theta_max)
 {
 #ifdef VERBOSE
 	printf("create_theta for %d agents and %d features\n", num_agents, num_features);
@@ -624,7 +649,9 @@ float *create_theta(unsigned num_agents, unsigned num_features, unsigned num_act
 //		float r = RandUniform(g_seeds, 1);
 //		theta[i] = (RAND_WGT_MAX - RAND_WGT_MIN) * r + RAND_WGT_MIN;
 //		printf("randome = %7.4f, theta = %7.4f\n", r, theta[i]);
-		theta[i] = (RAND_WGT_MAX - RAND_WGT_MIN) * RandUniform(g_seeds, 1) + RAND_WGT_MIN;
+
+		theta[i] = (theta_max - theta_min) * RandUniform(g_seeds, 1) + theta_min;
+		
 	}
 	return theta;
 }
@@ -640,6 +667,19 @@ float *create_e(unsigned num_agents, unsigned num_features, unsigned num_actions
 		e[i] = 0.0f;
 	}
 	return e;
+}
+
+// initial wgt's set to 0.0f
+float *create_wgt(unsigned num_agents, unsigned num_features, unsigned num_actions, float initial_sharing_wgt)
+{
+#ifdef VERBOSE
+	printf("create_wgt for %d agents and %d features and %d actions\n", num_agents, num_features, num_actions);
+#endif
+	float *wgt = (float *)malloc(num_agents * num_features * num_actions * sizeof(float));
+	for (int i = 0; i < num_agents * num_features * num_actions; i++) {
+		wgt[i] = initial_sharing_wgt;
+	}
+	return wgt;
 }
 
 // initial random states
@@ -703,8 +743,9 @@ AGENT_DATA *initialize_agentsCPU()
 #endif
 	AGENT_DATA *ag = (AGENT_DATA *)malloc(sizeof(AGENT_DATA));
 	ag->seeds = create_seeds(_p.agents);
-	ag->theta = create_theta(_p.agents, _p.num_features, _p.num_actions);
+	ag->theta = create_theta(_p.agents, _p.num_features, _p.num_actions, _p.initial_theta_min, _p.initial_theta_max);
 	ag->e = create_e(_p.agents, _p.num_features, _p.num_actions);
+	ag->wgt = create_wgt(_p.agents, _p.num_features, _p.num_actions, _p.initial_sharing_wgt);
 //	unsigned rows = _p.agents * ((_p.state_size + 2) * _p.sharing_interval + _p.state_size + 1);
 //	ag->ep_data = (float *)malloc(rows * sizeof(float));
 	ag->s = create_states(_p.agents, ag->seeds);
@@ -799,8 +840,7 @@ void learning_session(AGENT_DATA *ag)
 								_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
 			float Q_a_prime = ag->Q[agent + ag->action[agent] * _p.agents];
 			float delta = reward - Q_a + (fail ? 0 : _p.gamma * Q_a_prime);
-			update_thetas(ag->theta + agent, ag->e + agent, _p.alpha, delta, _p.num_features,
-																	 _p.agents, _p.num_actions);
+			update_thetas(ag->theta + agent, ag->e + agent, ag->wgt + agent, _p.alpha, delta, _p.num_features, _p.agents, _p.num_actions);
 			if (fail) reset_trace(ag->e + agent, _p.num_features, _p.num_actions, _p.agents);
 			update_stored_Q(ag->Q + agent, ag->s + agent, ag->theta + agent, _p.agents, 
 																				_p.num_actions);
@@ -814,17 +854,30 @@ void learning_session(AGENT_DATA *ag)
 // for all agents in the group
 void share_theta(AGENT_DATA *ag)
 {
-	// loop over every agent group and accumulate the theta values
+	// loop over every agent group and accumulate the theta values and wgt's
 	// in agent 0 in that group, then duplicate for all agents in group
 	for (int i = 0; i < _p.trials; i++) {
 		for (int fa = 0; fa < _p.num_features * _p.num_actions; fa++) {
 			unsigned agent0 = i * _p.agent_group_size + fa * _p.agents;
-			for (int a = agent0 + 1; a < agent0 + _p.agent_group_size; a++) {
-				ag->theta[agent0] += ag->theta[a];
-			}
-			float avg = ag->theta[agent0] / _p.agent_group_size;
+			float block_theta = 0.0f;
+			float block_wgt = 0.0f;
+			// accumulate wgtd theta and total wgt
 			for (int a = agent0; a < agent0 + _p.agent_group_size; a++) {
-				ag->theta[a] = avg;
+				block_theta += ag->theta[a] * ag->wgt[a];
+				block_wgt += ag->wgt[a];
+//				printf("fa[%d] agent[%d] theta=%7.4f wgt=%7.4f   block_thetat=%8.4f block_wgt=%8.4f\n",
+//						fa, a-agent0, ag->theta[a], ag->wgt[a], block_theta, block_wgt);
+			}
+			if (block_wgt > 0.0f){
+				block_theta /= block_wgt;	// convert to the average theta
+				block_wgt /= _p.agent_group_size;		// evenly divide total wgt over all agents
+			}
+//			printf("final block_theta is %7.4f and block_wgt is %7.4f\n", block_theta, block_wgt);
+			if (block_wgt > 0.0f) {
+				for (int a = agent0; a < agent0 + _p.agent_group_size; a++) {
+					ag->theta[a] = block_theta;
+					ag->wgt[a] = block_wgt;
+				}
 			}
 		}
 	}
@@ -953,6 +1006,7 @@ void free_agentsCPU(AGENT_DATA *ag)
 		if (ag->seeds) free(ag->seeds);
 		if (ag->theta) free(ag->theta);
 		if (ag->e) free(ag->e);
+		if (ag->wgt) free(ag->wgt);
 		if (ag->s) free(ag->s);
 		if (ag->Q) free(ag->Q);
 		if (ag->action) free(ag->action);
@@ -969,6 +1023,7 @@ AGENT_DATA *copy_GPU_agents()
 	agGPUcopy->seeds = host_copyui(d_seeds, _p.agents * 4);
 	agGPUcopy->theta = host_copyf(d_theta, _p.agents * _p.num_features * _p.num_actions);
 	agGPUcopy->e = host_copyf(d_e, _p.agents * _p.num_features * _p.num_actions);
+	agGPUcopy->wgt = host_copyf(d_wgt, _p.agents * _p.num_features * _p.num_actions);
 	agGPUcopy->s = host_copyf(d_s, _p.agents * _p.state_size);
 	agGPUcopy->Q = host_copyf(d_Q, _p.agents * _p.num_actions);
 	agGPUcopy->action = host_copyui(d_action, _p.agents);
@@ -1058,6 +1113,7 @@ void initialize_agentsGPU(AGENT_DATA *agCPU)
 	d_seeds = device_copyui(agCPU->seeds, _p.agents * 4);
 	d_theta = device_copyf(agCPU->theta, _p.agents * _p.num_features * _p.num_actions);
 	d_e = device_copyf(agCPU->e, _p.agents * _p.num_features * _p.num_actions);
+	d_wgt = device_copyf(agCPU->wgt, _p.agents * _p.num_features * _p.num_actions);
 	d_s = device_copyf(agCPU->s, _p.agents * _p.state_size);
 	d_Q = device_copyf(agCPU->Q, _p.agents * _p.num_actions);
 	d_action = device_copyui(agCPU->action, _p.agents);
@@ -1065,6 +1121,7 @@ void initialize_agentsGPU(AGENT_DATA *agCPU)
 	cudaMemcpyToSymbol("dc_seeds", &d_seeds, sizeof(unsigned *));
 	cudaMemcpyToSymbol("dc_theta", &d_theta, sizeof(float *));
 	cudaMemcpyToSymbol("dc_e", &d_e, sizeof(float *));
+	cudaMemcpyToSymbol("dc_wgt", &d_wgt, sizeof(float *));
 	cudaMemcpyToSymbol("dc_s", &d_s, sizeof(float *));
 	cudaMemcpyToSymbol("dc_Q", &d_Q, sizeof(float *));
 	cudaMemcpyToSymbol("dc_action", &d_action, sizeof(unsigned *));
@@ -1079,6 +1136,7 @@ void free_agentsGPU()
 	if (d_seeds) cudaFree(d_seeds);
 	if (d_theta) cudaFree(d_theta);
 	if (d_e) cudaFree(d_e);
+	if (d_wgt) cudaFree(d_wgt);
 	if (d_s) cudaFree(d_s);
 	if (d_Q) cudaFree(d_Q);
 	if (d_action) cudaFree(d_action);
@@ -1118,11 +1176,16 @@ __global__ void pole_share_kernel()
 	unsigned idx = threadIdx.x;
 	unsigned fa = blockIdx.y;
 	unsigned iGlobal = idx + blockIdx.x * blockDim.x + fa * dc_agents;
-	
-	// copy thetas to shared memory
+
+	// copy thetas and wgts to shared memory
 	extern __shared__ float s_theta[];
+	float *s_wgt = s_theta + dc_agent_group_size;
 	
 	s_theta[idx] = dc_theta[iGlobal];
+	s_wgt[idx] = dc_wgt[iGlobal];
+	
+	float old_theta = s_theta[idx];
+	s_theta[idx] *= s_wgt[idx];			// convert to wgtd theta
 
 	__syncthreads();
 	
@@ -1130,14 +1193,29 @@ __global__ void pole_share_kernel()
 	for (unsigned half = dc_agent_group_size >> 1; half > 0; half >>= 1) {
 		if (idx < half) {
 			s_theta[idx] += s_theta[idx + half];
+			s_wgt[idx] += s_wgt[idx + half];
 		}
 		__syncthreads();
 	}
 	
-	// s_total[0] contains the sum of theta values for the entire block
+	// copy the values at index 0 to all threads
+	if (idx > 0) {
+		s_theta[idx] = s_theta[0];
+		s_wgt[idx] = s_wgt[0];
+	}
+	__syncthreads();
 	
+	if (s_wgt[idx] > 0.0f) {
+		s_theta[idx] /= s_wgt[idx];
+		s_wgt[idx] /= dc_agent_group_size;
+	}else {
+		s_theta[idx] = old_theta;
+	}
+	
+	__syncthreads();
 	// copy s_theta back to global memory, converting it to the average value
-	dc_theta[iGlobal] = s_theta[0] / dc_agent_group_size;
+	dc_theta[iGlobal] = s_theta[idx];
+	dc_wgt[iGlobal] = s_wgt[idx];
 }
 
 
@@ -1193,7 +1271,7 @@ __global__ void pole_learn_kernel(unsigned steps, unsigned isRestart)
 		s_action[idx] = choose_actionGPU(s_sidx, dc_theta + iGlobal, s_Qidx, dc_seeds + iGlobal, feature);
 		float Q_a_prime = s_Q[idx + s_action[idx] * BLOCK_SIZE];
 		float delta = reward - Q_a + (fail ? 0 : dc_gamma * Q_a_prime);
-		update_thetasGPU(dc_theta + iGlobal, dc_e + iGlobal, delta);
+		update_thetasGPU(dc_theta + iGlobal, dc_e + iGlobal, dc_wgt + iGlobal, delta);
 		if (fail) reset_traceGPU(dc_e + iGlobal);
 		update_stored_QGPU(s_Qidx, s_sidx, dc_theta + iGlobal, feature);
 		update_traceGPU(s_action[idx], s_sidx, dc_e + iGlobal, feature);
@@ -1246,6 +1324,9 @@ void run_GPU(RESULTS *r)
 #ifdef VERBOSE
 	printf("\n==============================================\nRunning on GPU...\n");
 #endif
+
+//	printf("X_MIN = %7.4f X_MAX = %7.4f, ANGLE_MIN=%7.4f ANGLE_MAX=%7.4f\n",
+//		X_MIN, X_MAX, ANGLE_MIN, ANGLE_MAX);
 
 	// on entry the device constant pointers have been initialized to agent's theta, 
 	// eligibility trace, and state values
@@ -1335,7 +1416,7 @@ void run_GPU(RESULTS *r)
 		if ((_p.agent_group_size > 1) && (0 == ((i+1) % _p.chunks_per_share))) {
 //			printf("sharing ...\n");
 			CUDA_EVENT_START;
-			pole_share_kernel<<<shareGridDim, shareBlockDim, _p.agent_group_size * sizeof(float)>>>();
+			pole_share_kernel<<<shareGridDim, shareBlockDim, 2*_p.agent_group_size * sizeof(float)>>>();
 			CUDA_EVENT_STOP(timeShare);
 			CUT_CHECK_ERROR("pole_share_kernel execution failed");
 //			dump_agents_GPU("\n agent state after sharing\n", 0);
