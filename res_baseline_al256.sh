@@ -14,7 +14,7 @@ _test="--TEST_REPS=8192"
 _restart="--RESTART_INTERVAL=8192"
 _sharing="--SHARING_INTERVAL=2048"
 
-_wgtinfo="--INIT_SHARING_WGT=0.50 --INIT_THETA_MIN=-0.1 --INIT_THETA_MAX=0.1"
+_wgtinfo="--INIT_SHARING_WGT=0.00 --INIT_THETA_MIN=-0.1 --INIT_THETA_MAX=0.1"
 
 #_a=0.90
 _e=0.00
@@ -22,7 +22,7 @@ _g=0.90
 #_l=0.70
 
 
-for _l in .90
+for _l in .70
 
 do 
 
