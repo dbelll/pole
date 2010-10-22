@@ -14,13 +14,6 @@ Modify the test to measure average time to failure for the specified number of a
 -------
 Sharing
 -------
-Average the theta values across all agents
-(done)	Straight average, all agents given the same weight
-			Exclude values that have never been updated
-			Give extra weight to agents that 'own' a section of the state space.
-		Keep track of the 'update weight' which is the sum of the lambda amounts used to update each theta, and when sharing use a weighted average based on the 'update weights' 
-		Use update weights with initial 0's for all theta's all agents.  Then, the only values theta values will be from failures.
-	
 record all state, action, result, state action values for the episode, then have all agents update their parameters by using the same
 
 Have short restart periods that are handled within the learning kernel.  Force a randomization of the state similar to after a failure for all states within.

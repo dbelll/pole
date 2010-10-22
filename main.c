@@ -60,6 +60,9 @@ PARAMS read_params(int argc, const char **argv)
 	p.agents = p.trials * p.agent_group_size;
 	p.time_steps = GET_PARAM("TIME_STEPS", 64);
 	p.sharing_interval = GET_PARAM("SHARING_INTERVAL", p.time_steps);
+	p.initial_sharing_wgt = GET_PARAMF("INIT_SHARING_WGT", 0.5f);
+	p.initial_theta_min = GET_PARAMF("INIT_THETA_MIN", 0.0f);
+	p.initial_theta_max = GET_PARAMF("INIT_THETA_MAX", 1.0f);
 	
 	// set sharing interval to total time steps if only one agent
 	if (p.agents == 1) p.sharing_interval = p.time_steps;
@@ -159,10 +162,10 @@ PARAMS read_params(int argc, const char **argv)
 	
 	printf("[POLE][TRIALS%7d][TIME_STEPS%7d][SHARING_INTERVAL%7d][AGENT_GROUP_SIZE%7d][ALPHA%7.4f]"
 		   "[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][TEST_INTERVAL%7d][TEST_REPS%7d]"
-		   "[RESTART_INTERVAL%7d][DIVS%3d%3d%3d%3d][CHUNK_INTERVAL%7d]\n", 
+		   "[RESTART_INTERVAL%7d][DIVS%3d%3d%3d%3d][CHUNK_INTERVAL%7d][INIT_SHARING_WGT%7.4f][INIT_THETA_MIN%7.4f][INIT_THETA_MAX%7.4f]\n", 
 		   p.trials, p.time_steps, p.sharing_interval, p.agent_group_size, p.alpha, p.epsilon, 
 		   p.gamma, p.lambda, p.test_interval, p.test_reps, p.restart_interval, 
-		   p.divs_x, p.divs_dx, p.divs_alpha, p.divs_dalpha, p.chunk_interval);
+		   p.divs_x, p.divs_dx, p.divs_alpha, p.divs_dalpha, p.chunk_interval, p.initial_sharing_wgt, p.initial_theta_min, p.initial_theta_max);
 #ifdef VERBOSE
 	printf("num_agents = %d, num_features = %d\n", p.agents, p.num_features);
 #endif

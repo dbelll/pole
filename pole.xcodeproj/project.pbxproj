@@ -23,6 +23,7 @@
 		106FF828119EEF51000CD6C8 /* cuda_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cuda_utils.h; sourceTree = "<group>"; };
 		106FF829119EEF51000CD6C8 /* cuda_utils.cu */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cuda; path = cuda_utils.cu; sourceTree = "<group>"; };
 		109C8635126CDD5C006AA2BC /* todo.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = todo.txt; sourceTree = "<group>"; };
+		109C869C126D0C5B006AA2BC /* weighted_pole.cu */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cuda; path = weighted_pole.cu; sourceTree = "<group>"; };
 		10AA87EF125CA5BA0089B68E /* home_baseline.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = home_baseline.txt; sourceTree = "<group>"; };
 		10BE2F3F121C687E0080230A /* cuda_rand.cu */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cuda; path = cuda_rand.cu; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -31,6 +32,7 @@
 		10294D9B11A1B93300AAF551 /* source */ = {
 			isa = PBXGroup;
 			children = (
+				109C869C126D0C5B006AA2BC /* weighted_pole.cu */,
 				106F8AE1125B4C5900DD0860 /* reduction */,
 				1051E12C121F06E200BB27B0 /* main.h */,
 				106FF80D119EE7F5000CD6C8 /* main.c */,
