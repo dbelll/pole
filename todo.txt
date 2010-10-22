@@ -1,1 +1,19 @@
-re-run epsilon baseline test after fixing randomize state to not use epsilon when called from testing kernel
+=====
+to do
+=====
+
+test baseline for longer sharing periods
+
+test using epsilon
+
+test with varying restart
+
+try more divisions with wgtd_share
+
+
+
+
+=====
+Ideas
+=====
+
