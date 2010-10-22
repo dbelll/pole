@@ -20,6 +20,7 @@
 __constant__ unsigned dc_agents;
 __constant__ unsigned dc_agent_group_size;
 __constant__ unsigned dc_time_steps;
+__constant__ float dc_initial_sharing_wgt;
 
 __constant__ float dc_epsilon;
 __constant__ float dc_gamma;
@@ -72,6 +73,7 @@ void set_constant_params(PARAMS p)
 	cudaMemcpyToSymbol("dc_agents", &p.agents, sizeof(unsigned));
 	cudaMemcpyToSymbol("dc_agent_group_size", &p.agent_group_size, sizeof(unsigned));
 	cudaMemcpyToSymbol("dc_time_steps", &p.time_steps, sizeof(unsigned));
+	cudaMemcpyToSymbol("dc_initial_sharing_wgt", &p.initial_sharing_wgt, sizeof(float));
 	cudaMemcpyToSymbol("dc_epsilon", &p.epsilon, sizeof(float));
 	cudaMemcpyToSymbol("dc_gamma", &p.gamma, sizeof(float));
 	cudaMemcpyToSymbol("dc_lambda", &p.lambda, sizeof(float));
@@ -669,7 +671,7 @@ float *create_e(unsigned num_agents, unsigned num_features, unsigned num_actions
 	return e;
 }
 
-// initial wgt's set to 0.0f
+// initial wgt's set to initial_sharing_wgt
 float *create_wgt(unsigned num_agents, unsigned num_features, unsigned num_actions, float initial_sharing_wgt)
 {
 #ifdef VERBOSE
@@ -877,7 +879,7 @@ void share_theta(AGENT_DATA *ag)
 				for (int a = agent0; a < agent0 + _p.agent_group_size; a++) {
 					ag->theta[a] = block_theta;
 //					ag->wgt[a] = block_wgt;
-					ag->wgt[a] = 0.0f;
+					ag->wgt[a] = _p.initial_sharing_wgt;
 				}
 			}
 		}
@@ -1209,7 +1211,7 @@ __global__ void pole_share_kernel()
 	if (s_wgt[idx] > 0.0f) {
 		s_theta[idx] /= s_wgt[idx];
 //		s_wgt[idx] /= dc_agent_group_size;
-		s_wgt[idx] = 0.0f;
+		s_wgt[idx] = dc_initial_sharing_wgt;
 	}else {
 		s_theta[idx] = old_theta;
 	}
