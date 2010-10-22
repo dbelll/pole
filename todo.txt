@@ -2,6 +2,8 @@
 to do
 =====
 
+test baseline for longer sharing periods
+
 test using epsilon
 
 test with varying restart
@@ -15,4 +17,3 @@ try more divisions with wgtd_share
 Ideas
 =====
 
-Store weight of 1/n when doing weighted sharing.
