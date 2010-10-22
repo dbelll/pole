@@ -4,7 +4,7 @@
 #
 #
 
-_trials="--TRIALS=1024"
+_trials="--TRIALS=4096"
 
 _run="--RUN_ON_CPU=0 --RUN_ON_GPU=1"
 _location="./bin/linux/release"
@@ -26,9 +26,13 @@ for _l in .8
 
 do 
 
-for _a in 0.02 0.05 0.1
+for _a in 0.05
 
 do
+
+for _w in 99999.0
+do
+_wgtinfo="--INIT_SHARING_WGT=$_w --INIT_THETA_MIN=-0.1 --INIT_THETA_MAX=0.1"
 
 _parms="--ALPHA=$_a --EPSILON=$_e --GAMMA=$_g --LAMBDA=$_l"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
@@ -42,6 +46,8 @@ $_location/pole $_common --AGENT_GROUP_SIZE=4 --TIME_STEPS=131072 --TEST_INTERVA
 #_common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
 
 #$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=1024 --TEST_INTERVAL=32
+
+done
 
 done
 
