@@ -12,7 +12,7 @@
 
 // defines used everywhere
 
-//#define VERBOSE
+#define VERBOSE
 //#define DUMP_INITIAL_AGENTS
 //#define DUMP_AGENT_BEFORE_SHARING
 //#define DUMP_AGENT_END_OF_CHUNK

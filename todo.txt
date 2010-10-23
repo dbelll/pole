@@ -2,12 +2,6 @@
 to do
 =====
 
-test baseline for longer sharing periods
-
-test using epsilon
-
-test with varying restart
-
 try more divisions with wgtd_share
 
 
@@ -17,3 +11,6 @@ try more divisions with wgtd_share
 Ideas
 =====
 
+create a version using neural-net
+	1 node (adaline)
+	multi-node
