@@ -1174,26 +1174,34 @@ void free_agentsGPU()
 *	The group's y dimension is the feature/action index.
 *	Shared memory is used to do the reduction to get total values for the group.
 */
-__global__ void pole_share_kernel()
+__global__ void pole_share_kernel(unsigned numShareBlocks)
 {
 	unsigned idx = threadIdx.x;
 	unsigned fa = blockIdx.y;
-	unsigned iGlobal = idx + blockIdx.x * blockDim.x + fa * dc_agents;
+	unsigned iGlobal = idx + blockIdx.x * dc_agent_group_size + fa * dc_agents;
 
-	// copy thetas and wgts to shared memory
+	// copy thetas and wgts to shared memory, converting theta to theta x wgt
 	extern __shared__ float s_theta[];
-	float *s_wgt = s_theta + dc_agent_group_size;
+	float *s_wgt = s_theta + blockDim.x;
 	
-	s_theta[idx] = dc_theta[iGlobal];
 	s_wgt[idx] = dc_wgt[iGlobal];
+	s_theta[idx] = dc_theta[iGlobal] * s_wgt[idx];
 	
-	float old_theta = s_theta[idx];
-	s_theta[idx] *= s_wgt[idx];			// convert to wgtd theta
+	// repeat the process if there are more than one share blocks to be reduced
+	for (int i = 1; i < numShareBlocks; i++) {
+		unsigned iG = iGlobal + i * blockDim.x;
+		s_wgt[idx] += dc_wgt[iG];
+		s_theta[idx] += dc_theta[iG] * dc_wgt[iG];
+	}
+
+//	// hard coded for group size of 4 with share block size of 2
+//	s_wgt[idx] = dc_wgt[iGlobal] + dc_wgt[iGlobal + 2];
+//	s_theta[idx] = dc_wgt[iGlobal] * dc_theta[iGlobal] + dc_wgt[iGlobal+2] * dc_theta[iGlobal + 2];
 
 	__syncthreads();
 	
 	// do a reduction on theta for this group
-	for (unsigned half = dc_agent_group_size >> 1; half > 0; half >>= 1) {
+	for (unsigned half = blockDim.x >> 1; half > 0; half >>= 1) {
 		if (idx < half) {
 			s_theta[idx] += s_theta[idx + half];
 			s_wgt[idx] += s_wgt[idx + half];
@@ -1202,24 +1210,41 @@ __global__ void pole_share_kernel()
 	}
 	
 	// copy the values at index 0 to all threads
-	if (idx > 0) {
-		s_theta[idx] = s_theta[0];
-		s_wgt[idx] = s_wgt[0];
-	}
-	__syncthreads();
+//	if (idx > 0) {
+//		s_theta[idx] = s_theta[0];
+//		s_wgt[idx] = s_wgt[0];
+//	}
+//	__syncthreads();
+	float new_theta = 0.0f;
+	if (s_wgt[0] > 0.0f) new_theta = s_theta[0] / s_wgt[0];
 	
-	if (s_wgt[idx] > 0.0f) {
-		s_theta[idx] /= s_wgt[idx];
-//		s_wgt[idx] /= dc_agent_group_size;
-		s_wgt[idx] = dc_initial_sharing_wgt;
-	}else {
-		s_theta[idx] = old_theta;
+	for (int i = 0; i < numShareBlocks; i++) {
+		unsigned iG = iGlobal + i * blockDim.x;
+		if (s_wgt[0] > 0.0f) dc_theta[iG] = new_theta;
+		dc_wgt[iG] = dc_initial_sharing_wgt;
 	}
+
+	// update the value of theta if there is positive weight and store in global memory
+//	if (s_wgt[idx] > 0.0f) {
+//		float new_theta = s_theta[idx] / s_wgt[idx];
+//		for (int i = 0; i < numShareBlocks; i++) {
+//			unsigned iG = iGlobal + i * blockDim.x;
+//			dc_theta[iG] = new_theta;
+//		}
+//	}
 	
-	__syncthreads();
-	// copy s_theta back to global memory, converting it to the average value
-	dc_theta[iGlobal] = s_theta[idx];
-	dc_wgt[iGlobal] = s_wgt[idx];
+	// **TODO** reset all weights more efficiently with a straight mem copy? or separate kernel?
+	// reset the weight to the initial value for each  sharing episode
+//	for (int i = 0; i < numShareBlocks; i++) {
+//			unsigned iG = iGlobal + i * blockDim.x;
+//			dc_wgt[iG] = dc_initial_sharing_wgt;
+//	}
+	
+	
+//	__syncthreads();
+//	// copy s_theta back to global memory, converting it to the average value
+//	dc_theta[iGlobal] = s_theta[idx];
+//	dc_wgt[iGlobal] = s_wgt[idx];
 }
 
 
@@ -1360,12 +1385,20 @@ void run_GPU(RESULTS *r)
 		clearTraceGridDim.x = 1 + (clearTraceGridDim.x-1) / clearTraceGridDim.y;
 	}
 	
-	dim3 shareBlockDim(_p.agent_group_size);
+	// calculate a multiplier in case the agent group size is more than 512
+	unsigned numShareBlocks = 1;
+	unsigned shareBlockSize = _p.agent_group_size;
+	if (shareBlockSize > 128) {
+		numShareBlocks = shareBlockSize / 128;
+		shareBlockSize = 128;
+	}
+	dim3 shareBlockDim(shareBlockSize);
 	dim3 shareGridDim(_p.trials, _p.num_features * _p.num_actions);
 	
 #ifdef VERBOSE
 	printf("%d total agents\n", _p.agents);
 	printf("%d threads per block, (%d x %d) grid of blocks\n", blockDim.x, gridDim.x, gridDim.y);
+	printf("for sharing: %d threads per block, (%d x %d) grid of blocks\n", shareBlockDim.x, shareGridDim.x, shareGridDim.y);
 	printf("for clearing trace: %d threads per block, (%d x %d) grid of blocks\n", 
 						clearTraceBlockDim.x, clearTraceGridDim.x, clearTraceGridDim.y);
 #endif
@@ -1418,9 +1451,9 @@ void run_GPU(RESULTS *r)
 //		dump_agents_GPU("\n agent state after learning\n", 0);
 
 		if ((_p.agent_group_size > 1) && (0 == ((i+1) % _p.chunks_per_share))) {
-//			printf("sharing ...\n");
+			printf("sharing (with %d share blocks)...\n", numShareBlocks);
 			CUDA_EVENT_START;
-			pole_share_kernel<<<shareGridDim, shareBlockDim, 2*_p.agent_group_size * sizeof(float)>>>();
+			pole_share_kernel<<<shareGridDim, shareBlockDim, 2*blockDim.x * sizeof(float)>>>(numShareBlocks);
 			CUDA_EVENT_STOP(timeShare);
 			CUT_CHECK_ERROR("pole_share_kernel execution failed");
 //			dump_agents_GPU("\n agent state after sharing\n", 0);
