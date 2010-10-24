@@ -4,12 +4,12 @@ Only keep track of a subset of the theta values with lambda values.
 
 Write position, angle, and action to a file for playback.
 
-
 Change test to do restarts?
 
-Use bit-wise operations instead of % and mod when dividing or taking modulo by a number which is power of 2.
+Add 2nd level of sharing for frequent sharing among smaller groups within the large agent groups
 
-Modify the test to measure average time to failure for the specified number of attempts, subject to a maximum number of time steps
+Vary the alpha (or other learning parameters) by sharing episode, or make it a function of test-score
+
 
 -------
 Sharing
