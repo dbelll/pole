@@ -25,6 +25,7 @@
 		109C8635126CDD5C006AA2BC /* todo.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = todo.txt; sourceTree = "<group>"; };
 		10AA87EF125CA5BA0089B68E /* home_baseline.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = home_baseline.txt; sourceTree = "<group>"; };
 		10BE2F3F121C687E0080230A /* cuda_rand.cu */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cuda; path = cuda_rand.cu; sourceTree = "<group>"; };
+		10EA44E21273731D001A6514 /* test_5454.numbers */ = {isa = PBXFileReference; lastKnownFileType = file; path = test_5454.numbers; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -66,6 +67,7 @@
 		106FF7E9119EE654000CD6C8 = {
 			isa = PBXGroup;
 			children = (
+				10EA44E21273731D001A6514 /* test_5454.numbers */,
 				1051E2C91220865A00BB27B0 /* notes.txt */,
 				109C8635126CDD5C006AA2BC /* todo.txt */,
 				10AA87EF125CA5BA0089B68E /* home_baseline.txt */,

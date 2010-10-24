@@ -973,6 +973,10 @@ void run_CPU_noshare(AGENT_DATA *ag, RESULTS *r)
 	dump_agents("               ENDING AGENT STATES\n", ag);
 #endif		
 	printf("\n");
+	if (_p.dump1) {
+		dump_one_agent("----------------------------------------------\n      Agent 0 Ending State\n", ag);
+	}
+
 //	printf("total failures = %d\n", tot_fails);
 }
 
@@ -1217,7 +1221,8 @@ __global__ void pole_share_kernel(unsigned numShareBlocks)
 //	__syncthreads();
 	float new_theta = 0.0f;
 	if (s_wgt[0] > 0.0f) new_theta = s_theta[0] / s_wgt[0];
-	
+
+	__syncthreads();
 	for (int i = 0; i < numShareBlocks; i++) {
 		unsigned iG = iGlobal + i * blockDim.x;
 		if (s_wgt[0] > 0.0f) dc_theta[iG] = new_theta;
@@ -1388,9 +1393,9 @@ void run_GPU(RESULTS *r)
 	// calculate a multiplier in case the agent group size is more than 512
 	unsigned numShareBlocks = 1;
 	unsigned shareBlockSize = _p.agent_group_size;
-	if (shareBlockSize > 128) {
-		numShareBlocks = shareBlockSize / 128;
-		shareBlockSize = 128;
+	if (shareBlockSize > 512) {
+		numShareBlocks = shareBlockSize / 512;
+		shareBlockSize = 512;
 	}
 	dim3 shareBlockDim(shareBlockSize);
 	dim3 shareGridDim(_p.trials, _p.num_features * _p.num_actions);
@@ -1453,7 +1458,7 @@ void run_GPU(RESULTS *r)
 		if ((_p.agent_group_size > 1) && (0 == ((i+1) % _p.chunks_per_share))) {
 			printf("sharing (with %d share blocks)...\n", numShareBlocks);
 			CUDA_EVENT_START;
-			pole_share_kernel<<<shareGridDim, shareBlockDim, 2*blockDim.x * sizeof(float)>>>(numShareBlocks);
+			pole_share_kernel<<<shareGridDim, shareBlockDim, 2*shareBlockDim.x * sizeof(float)>>>(numShareBlocks);
 			CUDA_EVENT_STOP(timeShare);
 			CUT_CHECK_ERROR("pole_share_kernel execution failed");
 //			dump_agents_GPU("\n agent state after sharing\n", 0);
