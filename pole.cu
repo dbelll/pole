@@ -550,7 +550,7 @@ __host__ void update_thetas(float *theta, float *e, float *wgt, float alpha, flo
 //			printf("   feature-action %5d(%4x) %3d with trace %9.6f changed from %9.6f", (fa/num_actions), divs_for_feature(fa/num_actions), (fa%num_actions), e[fa*stride], theta[fa*stride]);
 //#endif
 			theta[fa] += alpha * delta * e[fa];
-			wgt[fa] += alpha * e[fa];			
+			wgt[fa] += alpha * e[fa];
 //#ifdef DUMP_THETA_UPDATE_CALCULATIONS
 //			printf(" to %9.6f\n", theta[fa*stride]);
 //#endif
@@ -1388,9 +1388,9 @@ void run_GPU(RESULTS *r)
 	// calculate a multiplier in case the agent group size is more than 512
 	unsigned numShareBlocks = 1;
 	unsigned shareBlockSize = _p.agent_group_size;
-	if (shareBlockSize > 128) {
-		numShareBlocks = shareBlockSize / 128;
-		shareBlockSize = 128;
+	if (shareBlockSize > 512) {
+		numShareBlocks = shareBlockSize / 512;
+		shareBlockSize = 512;
 	}
 	dim3 shareBlockDim(shareBlockSize);
 	dim3 shareGridDim(_p.trials, _p.num_features * _p.num_actions);
@@ -1451,7 +1451,6 @@ void run_GPU(RESULTS *r)
 //		dump_agents_GPU("\n agent state after learning\n", 0);
 
 		if ((_p.agent_group_size > 1) && (0 == ((i+1) % _p.chunks_per_share))) {
-			printf("sharing (with %d share blocks)...\n", numShareBlocks);
 			CUDA_EVENT_START;
 			pole_share_kernel<<<shareGridDim, shareBlockDim, 2*blockDim.x * sizeof(float)>>>(numShareBlocks);
 			CUDA_EVENT_STOP(timeShare);
