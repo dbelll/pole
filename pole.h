@@ -11,17 +11,10 @@
 #pragma mark -
 #pragma mark Problem Constants
 
+/*
+	Maxium block size is 256 at home and 512 on resonance.
+ */
 #define BLOCK_SIZE 256
-
-//#define MAX_TIME_STEPS_PER_LAUNCH 16384
-
-
-
-// range of values for the initial random weights, theta
-//#define RAND_WGT_MIN 0.5f
-//#define RAND_WGT_MAX 1.0f
-
-//#define INITIAL_WGT_FOR_SHARING 0.5f
 
 // parameters of the problem and tiling of state space
 // see Brownlee. The pole balancing problem: a benchmark control theory problem. hdl.handle.net (2005)
@@ -40,9 +33,6 @@
 #define X_VEL_MAX .5f
 #define X_VEL_MIN (-X_VEL_MAX)
 #define X_VEL_DIV 2
-
-// number of standard deviations equal to the maximum value for determining initial state values
-//#define SD_FOR_MAX 2.0f
 
 #define NUM_FEATURES (ANGLE_DIV * ANGLE_VEL_DIV * X_DIV *X_VEL_DIV)
 #define NUM_STATE_VALUES 4
@@ -68,6 +58,10 @@
 #pragma mark -
 #pragma mark typedefs
 
+/*
+	Parameters are stored in a large structure.  These include command line parameters and
+	calculated values.
+ */
 typedef struct {
 	unsigned dump1;				// flag to dump one agent from GPU at end of run
 	unsigned trials;
@@ -116,6 +110,10 @@ typedef struct {
 	
 } PARAMS;
 
+
+/*
+ *	The AGENT_DATA structure holds pointers to data related to all the agents.
+ */
 typedef struct{
 	unsigned device_flag;	// 1 => these are device pointers, 0 => host pointers
 	unsigned *seeds;	// seeds for random number generator
@@ -126,13 +124,16 @@ typedef struct{
 	float *s;			// current state (angle, angular velocity, cart position, cart velocity)
 	float *Q;			// Q values for each action, filled when determining best action
 	unsigned *action;	// temp storage for action to be taken and the next action
-//	unsigned *prev_action;		// storage place for previous action
-//	unsigned *f_prev_state;		// feature value for previous state
 } AGENT_DATA;		// may hold either host or device pointers
 
+
+/*
+ *	RESULTS structure is used to contain pointers to result values 
+ */
 typedef struct{
 	float *avg_fail;	// average number of failures per test
 } RESULTS;
+
 
 #pragma mark -
 #pragma mark prototypes
