@@ -314,7 +314,7 @@ __device__ __host__ float take_action(unsigned a, float *s, float *s_prime, unsi
 __device__ __host__ unsigned feature_val_for_state_val(float s, float minv, float maxv, 
 														unsigned div)
 {
-	return max(0, min(div-1, (unsigned)((s-minv)/(maxv-minv) * (float)div)));
+  return (unsigned)max(0.0f, min(((float)(div)-1.0f), ((s-minv)/(maxv-minv) * (float)div)));
 }
 
 // Determine which feature corresponds to the given state
@@ -596,7 +596,7 @@ void dump_agent(AGENT_DATA *ag, unsigned agent)
 	printf("%9.6f %9.6f %9.6f %9.6f %9.6f %9.6f %7d(%4x)\n", ag->s[agent], ag->s[agent + _p.agents], ag->s[agent + 2*_p.agents], ag->s[agent + 3*_p.agents], ag->Q[agent], ag->Q[agent + _p.agents],
 		feature, divs_for_feature(feature));
 
-	printf("chosen action is %d\n", ag->action[agent]);
+	//	printf("chosen action is %d\n", ag->action[agent]);
 	
 	printf("ACTION  Q-value\n");
 //		printf("number of actions is %d\n", p.num_actions);
@@ -780,12 +780,17 @@ float run_test(AGENT_DATA *ag)
 		float Q1 = ag->Q[agent + _p.agents];
 		
 		randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
+
+		//		dump_one_agent("aftger randomizing initial state, before starting test", ag);
 		ag->action[agent] = best_action(ag->s + agent, ag->theta + agent, ag->Q + agent, _p.agents, _p.num_actions);
 
 		// run the test for up to the specified number of reps or first failure
 		int t;
 		for (t = 0; t < _p.test_reps; t++) {
+		  //		  printf("[%d] action is %d\n", t, ag->action[agent]);
 			take_action(ag->action[agent], ag->s+agent, ag->s+agent, _p.agents);
+			//			dump_state(ag->s + agent, _p.agents);
+
 			if (terminal_state(ag->s + agent, _p.agents)){
 //				++num_failures;
 //				randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
@@ -805,6 +810,8 @@ float run_test(AGENT_DATA *ag)
 		ag->Q[agent] = Q0;
 		ag->Q[agent + _p.agents] = Q1;
 	}
+
+	//	dump_one_agent("after testing", ag);
 
 	return total_time / (float)_p.agents;
 }
