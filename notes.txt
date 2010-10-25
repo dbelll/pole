@@ -10,6 +10,8 @@ Add 2nd level of sharing for frequent sharing among smaller groups within the la
 
 Vary the alpha (or other learning parameters) by sharing episode, or make it a function of test-score
 
+Test differentiation with large agent groups
+	
 
 -------
 Sharing
