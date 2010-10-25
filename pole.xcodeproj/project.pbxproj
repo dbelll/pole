@@ -22,7 +22,6 @@
 		106FF828119EEF51000CD6C8 /* cuda_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cuda_utils.h; sourceTree = "<group>"; };
 		106FF829119EEF51000CD6C8 /* cuda_utils.cu */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cuda; path = cuda_utils.cu; sourceTree = "<group>"; };
 		109C8635126CDD5C006AA2BC /* todo.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = todo.txt; sourceTree = "<group>"; };
-		10AA87EF125CA5BA0089B68E /* home_baseline.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = home_baseline.txt; sourceTree = "<group>"; };
 		10BE2F3F121C687E0080230A /* cuda_rand.cu */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cuda; path = cuda_rand.cu; sourceTree = "<group>"; };
 		10EA458412751DB6001A6514 /* device_memory_requirements.numbers */ = {isa = PBXFileReference; lastKnownFileType = file; name = device_memory_requirements.numbers; path = stats/device_memory_requirements.numbers; sourceTree = "<group>"; };
 		10EA45931275A592001A6514 /* CUDA_Occupancy_calculator.numbers */ = {isa = PBXFileReference; lastKnownFileType = file; path = CUDA_Occupancy_calculator.numbers; sourceTree = "<group>"; };
@@ -70,7 +69,6 @@
 			children = (
 				1051E2C91220865A00BB27B0 /* notes.txt */,
 				109C8635126CDD5C006AA2BC /* todo.txt */,
-				10AA87EF125CA5BA0089B68E /* home_baseline.txt */,
 				106F8B75125B5B8500DD0860 /* home_junk */,
 				106F8B77125B5B9E00DD0860 /* res_junk */,
 				10294D9B11A1B93300AAF551 /* source */,
