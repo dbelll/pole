@@ -12,12 +12,12 @@
     echo "Profiling is on!!!"
 
 
-_trials="--TRIALS=2048"
+_trials="--TRIALS=32"
 
 _run="--RUN_ON_CPU=0 --RUN_ON_GPU=1"
 _location="./bin/linux/release"
-_restart="--RESTART_INTERVAL=1024"
-_test="--TEST_REPS=16384"
+_restart="--RESTART_INTERVAL=2048"
+_test="--TEST_REPS=8192"
 
 
 _a="--ALPHA"
@@ -25,13 +25,14 @@ _e="--EPSILON"
 _g="--GAMMA"
 _l="--LAMBDA"
 
-_parms="$_a=.50 $_e=.00 $_l=.70"
+_parms="$_a=.90 $_e=.00 $_l=.90"
 
 
-_sharing="--SHARING_INTERVAL=1024"
+_sharing="--SHARING_INTERVAL=2048"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms"
 
 
-$_location/pole $_common --AGENT_GROUP_SIZE=32 --TIME_STEPS=16384 --TEST_INTERVAL=1024
+$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=16384 --TEST_INTERVAL=2048
+
 
 

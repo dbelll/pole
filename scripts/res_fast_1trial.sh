@@ -25,7 +25,7 @@ _l=0.70
 _parms="--ALPHA=$_a --EPSILON=$_e --GAMMA=$_g --LAMBDA=$_l"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
 
-$_location/pole $_common --AGENT_GROUP_SIZE=1 --TIME_STEPS=262144 --TEST_INTERVAL=8192
+$_location/pole $_common --AGENT_GROUP_SIZE=1 --TIME_STEPS=262144 --TEST_INTERVAL=262144
 
 _a=0.05
 _e=0.00
@@ -85,4 +85,4 @@ _run="--RUN_ON_CPU=1 --RUN_ON_GPU=0"
 _parms="--ALPHA=$_a --EPSILON=$_e --GAMMA=$_g --LAMBDA=$_l"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
 
-$_location/pole $_common --AGENT_GROUP_SIZE=1 --TIME_STEPS=262144 --TEST_INTERVAL=8192
+$_location/pole $_common --AGENT_GROUP_SIZE=1 --TIME_STEPS=262144 --TEST_INTERVAL=262144
