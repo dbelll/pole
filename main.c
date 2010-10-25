@@ -28,20 +28,30 @@ void display_help()
 	printf("  --TIME_STEPS          total number of time steps for each trial\n");
 	printf("  --AGENT_GROUP_SIZE    size of agent groups that will communicate\n");
 	printf("  --SHARING_INTERVAL    number of time steps between agent communication\n");
+
+	printf("  --INIT_SHARING_WGT    starting weight value given to all agents prior to an epiosode\n");
+	printf("  --INIT_THETA_MIN		minimum of range of possible initial theta values\n");
+	printf("  --INIT_THETA_MAX		maximum of range of possible initial theta values\n");
+
 	printf("  --ALPHA               float value for alpha, the learning rate parameter\n");
 	printf("  --EPSILON             float value for epsilon, the exploration parameter\n");
 	printf("  --GAMMA               float value for gamma, the discount factor\n");
 	printf("  --LAMBDA              float value for lambda, the trace decay factor\n");
+
 	printf("  --DIVS_X              number of divisions of x value");
 	printf("  --DIVS_DX             number of divisions of x velocity");
 	printf("  --DIVS_ALPHA          number of divisions of alpha value");
 	printf("  --DIVS_DALPHA         number of divisions of alpha velocity");
-	printf("  --TEST_INTERVAL       time steps between testing of agent's learning ability\n");
-	printf("  --TEST_REPS			duration of test in time steps\n");
-	printf("  --RESTART_INTERVAL    time steps between random restarts\n");
+
 	printf("  --RUN_ON_GPU          1 = run on GPU, 0 = do not run on GPU\n");
 	printf("  --RUN_ON_CPU          1 = run on CPU, 0 = do not run on CPU\n");
 	printf("  --NO_PRINT			flag to suppress printing out results (only timing values printed)\n");
+	printf("  --DUMP1				dump one agent at end of run\n");
+
+	printf("  --TEST_INTERVAL       time steps between testing of agent's learning ability\n");
+	printf("  --TEST_REPS			duration of test in time steps\n");
+	printf("  --RESTART_INTERVAL    time steps between random restarts\n");
+	
 	printf("  --HELP                print this help message\n");
 	printf("default values will be used for any parameters not on command line\n");
 }
@@ -56,10 +66,11 @@ PARAMS read_params(int argc, const char **argv)
 	if (argc == 1 || PARAM_PRESENT("HELP")) { display_help(); exit(1); }
 	
 	p.trials = GET_PARAM("TRIALS", 1024);
+	p.time_steps = GET_PARAM("TIME_STEPS", 64);
 	p.agent_group_size = GET_PARAM("AGENT_GROUP_SIZE", 1);
 	p.agents = p.trials * p.agent_group_size;
-	p.time_steps = GET_PARAM("TIME_STEPS", 64);
 	p.sharing_interval = GET_PARAM("SHARING_INTERVAL", p.time_steps);
+
 	p.initial_sharing_wgt = GET_PARAMF("INIT_SHARING_WGT", 0.5f);
 	p.initial_theta_min = GET_PARAMF("INIT_THETA_MIN", 0.0f);
 	p.initial_theta_max = GET_PARAMF("INIT_THETA_MAX", 1.0f);
@@ -75,10 +86,10 @@ PARAMS read_params(int argc, const char **argv)
 	}
 	p.num_sharing_intervals = p.time_steps / p.sharing_interval;
 
+	p.alpha = GET_PARAMF("ALPHA", DEFAULT_ALPHA);
 	p.epsilon = GET_PARAMF("EPSILON", DEFAULT_EPSILON);
 	p.gamma = GET_PARAMF("GAMMA", DEFAULT_GAMMA);
 	p.lambda = GET_PARAMF("LAMBDA", DEFAULT_LAMBDA);
-	p.alpha = GET_PARAMF("ALPHA", DEFAULT_ALPHA);
 	
 	p.divs_x = GET_PARAM("DIVS_X", X_DIV);
 	p.divs_dx = GET_PARAM("DIVS_DX", X_VEL_DIV);
@@ -155,20 +166,13 @@ PARAMS read_params(int argc, const char **argv)
 	p.chunks_per_share = p.sharing_interval / p.chunk_interval;
 	p.chunks_per_restart = p.restart_interval / p.chunk_interval;
 	
-//	p.num_restarts = p.time_steps / p.restart_interval;
-//	p.restarts_per_test = p.num_restarts / p.num_tests;
-//	p.restarts_per_share = p.sharing_interval / p.restart_interval;
-//	if (p.restarts_per_share == 0) p.restarts_per_share = 1;
-	
 	printf("[POLE][TRIALS%7d][TIME_STEPS%7d][SHARING_INTERVAL%7d][AGENT_GROUP_SIZE%7d][ALPHA%7.4f]"
 		   "[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][TEST_INTERVAL%7d][TEST_REPS%7d]"
 		   "[RESTART_INTERVAL%7d][DIVS%3d%3d%3d%3d][CHUNK_INTERVAL%7d][INIT_SHARING_WGT%7.4f][INIT_THETA_MIN%7.4f][INIT_THETA_MAX%7.4f]\n", 
 		   p.trials, p.time_steps, p.sharing_interval, p.agent_group_size, p.alpha, p.epsilon, 
 		   p.gamma, p.lambda, p.test_interval, p.test_reps, p.restart_interval, 
 		   p.divs_x, p.divs_dx, p.divs_alpha, p.divs_dalpha, p.chunk_interval, p.initial_sharing_wgt, p.initial_theta_min, p.initial_theta_max);
-#ifdef VERBOSE
-	printf("num_agents = %d, num_features = %d\n", p.agents, p.num_features);
-#endif
+
 	return p;
 }
 
