@@ -25,6 +25,7 @@
 		10BE2F3F121C687E0080230A /* cuda_rand.cu */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cuda; path = cuda_rand.cu; sourceTree = "<group>"; };
 		10EA458412751DB6001A6514 /* device_memory_requirements.numbers */ = {isa = PBXFileReference; lastKnownFileType = file; name = device_memory_requirements.numbers; path = stats/device_memory_requirements.numbers; sourceTree = "<group>"; };
 		10EA45931275A592001A6514 /* CUDA_Occupancy_calculator.numbers */ = {isa = PBXFileReference; lastKnownFileType = file; path = CUDA_Occupancy_calculator.numbers; sourceTree = "<group>"; };
+		10EA46E01277191C001A6514 /* branch_notes.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = branch_notes.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -67,13 +68,22 @@
 		106FF7E9119EE654000CD6C8 = {
 			isa = PBXGroup;
 			children = (
-				1051E2C91220865A00BB27B0 /* notes.txt */,
-				109C8635126CDD5C006AA2BC /* todo.txt */,
+				10EA46DF127718F8001A6514 /* notes */,
 				106F8B75125B5B8500DD0860 /* home_junk */,
 				106F8B77125B5B9E00DD0860 /* res_junk */,
 				10294D9B11A1B93300AAF551 /* source */,
 				10294D9C11A1B93D00AAF551 /* other */,
 			);
+			sourceTree = "<group>";
+		};
+		10EA46DF127718F8001A6514 /* notes */ = {
+			isa = PBXGroup;
+			children = (
+				10EA46E01277191C001A6514 /* branch_notes.txt */,
+				1051E2C91220865A00BB27B0 /* notes.txt */,
+				109C8635126CDD5C006AA2BC /* todo.txt */,
+			);
+			name = notes;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
