@@ -1,0 +1,6 @@
+share	main branch, latest tested version of the code is here
+
+differ	experimental branch for trying differentiation strategies
+
+opt		branch for optimizing code.
+

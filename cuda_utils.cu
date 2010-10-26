@@ -15,7 +15,10 @@
 
 #pragma mark timer functions
 
-void CREATE_TIMER(unsigned int *p_timer){ cutilCheckError(cutCreateTimer(p_timer)); }
+void CREATE_TIMER(unsigned int *p_timer){
+	cutilCheckError(cutCreateTimer(p_timer)); 
+	cutilCheckError(cutResetTimer(*p_timer));
+}
 void START_TIMER(unsigned int timer){ 
 	cutilCheckError(cutResetTimer(timer));
 	cutilCheckError(cutStartTimer(timer)); 
@@ -26,8 +29,15 @@ float STOP_TIMER(unsigned int timer, char *message){
 	if (message) printf("%12.3f ms for %s\n", elapsed, message);
 	return elapsed;
 }
-void DELETE_TIMER(unsigned int timer){ cutilCheckError(cutDeleteTimer(timer)); }
+void PAUSE_TIMER(unsigned int timer){	cutilCheckError(cutStopTimer(timer));	}
+void RESUME_TIMER(unsigned int timer){ cutilCheckError(cutStartTimer(timer));	}
+void RESET_TIMER(unsigned timer){		cutilCheckError(cutResetTimer(timer));	}
+void DELETE_TIMER(unsigned int timer){	cutilCheckError(cutDeleteTimer(timer)); }
 
+void PRINT_TIME(float time, char *message)
+{
+	if (message) printf("%12.3f ms for %s\n", time, message);
+}
 
 #pragma mark device memory functions
 float *device_copyf(float *data, unsigned count_data)

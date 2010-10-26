@@ -69,6 +69,37 @@ void CREATE_TIMER(unsigned int *p_timer);
 void START_TIMER(unsigned int timer);
 float STOP_TIMER(unsigned int timer, char *message);
 void DELETE_TIMER(unsigned int timer);
+void PAUSE_TIMER(unsigned int timer);
+void RESUME_TIMER(unsigned int timer);
+void RESET_TIMER(unsigned timer);
+void DELETE_TIMER(unsigned int timer);
+void PRINT_TIME(float time, char *message);
 
+
+/*
+ *		Use Cuda Events to get precise GPU timings.
+ *		These timings will be consistent with the profiler timing values.
+ *
+ *		First, declare a float variabile to hold the elapsed time
+ *		Use CUDA_EVENT_PREPARE before doing any timing to setup variables and create the events
+ *		Use CUDA_EVENT_START before launching the kernel.
+ *		Use CUDA_EVENT_STOP(t) after launching the kernel, where t is the float used to accumulate time
+ *		Time values can be printed in a consistent format by calling PRINT_TIME(t, "timing message");
+ *		When all timing is done, use CUDA_EVENT_CLEANUP once all event timing is done.
+ */
+
+#define CUDA_EVENT_PREPARE	cudaEvent_t __start, __stop;	\
+							float __timeTemp = 0.0f;		\
+							cudaEventCreate(&__start);		\
+							cudaEventCreate(&__stop);
+
+#define CUDA_EVENT_START	cudaEventRecord(__start, 0);
+#define CUDA_EVENT_STOP(t)	cudaEventRecord(__stop, 0);							\
+							cudaEventSynchronize(__stop);							\
+							cudaEventElapsedTime(&__timeTemp, __start, __stop);	\
+							t += __timeTemp;
+
+#define CUDA_EVENT_CLEANUP	cudaEventDestroy(__start);	\
+							cudaEventDestroy(__stop);
 
 #endif

@@ -6,6 +6,7 @@ build
 
 # emacs debris
 *~
+\#*#
 
 # osx noise
 .DS_Store
@@ -13,6 +14,8 @@ profile
 
 # others
 *.numbers
+*.pages
+*.orig
 
 #cuda symlinks and build diretories
 lib
@@ -22,7 +25,10 @@ obj
 tmp
 
 # don't include the profiling output
-profile_log.csv
+*.csv
 
 # other junk
 junk*
+home_junk
+homejunk
+res_junk

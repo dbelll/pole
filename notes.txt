@@ -1,26 +1,24 @@
-Setup an output data structure to hold the test results on the device, then use reduction to calculate the avearge results.
-
 Pass a pointer to the AGENT_DATA and PARAMS to the routines that run on host and device.
 
-Only keep track of a subset of the thetat values with lambda values.
+Only keep track of a subset of the theta values with lambda values.
 
 Write position, angle, and action to a file for playback.
 
-Put agent datsa structure into constant memory.
+Change test to do restarts?
 
+Add 2nd level of sharing for frequent sharing among smaller groups within the large agent groups
+
+Vary the alpha (or other learning parameters) by sharing episode, or make it a function of test-score
+
+Test differentiation with large agent groups
+	
 
 -------
 Sharing
 -------
-Average the theta values across all agents
-	Straight average, all agents given the same weight
-	Exclude values that have never been updated
-	Give extra weight to agents that 'own' a section of the state space.
-	Keep track of the 'update weight' which is the sum of the lambda amounts used to update each theta
-		When sharing use a weighted average based on the 'update weights' 
-	
 record all state, action, result, state action values for the episode, then have all agents update their parameters by using the same
 
+Have short restart periods that are handled within the learning kernel.  Force a randomization of the state similar to after a failure for all states within.
 
 ---------------
 Differentiation
@@ -31,3 +29,14 @@ Use different re-start intervals
 
 Assign a wider range for initial states
 
+Give agents a permanent small bias for each feature/action so when the Q-values are close together, agents will take different paths
+
+
+------------------------------
+Optimization
+------------------------------
+Use a circular buffer for eligibity traces and feature number --- This would increase non-coalesced global memory accesses, many not work well.
+
+Cache the last feature and <other values>  check the cache first before going to global memory for the values.
+
+Try using epsilon - allow threads to learn more

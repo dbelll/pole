@@ -1,0 +1,14 @@
+Things to test and notes about the results
+As new 'best' values are determined, the baseline should be re-run with
+those values and other tests repeated off the new baseline.
+
+Test the starting range for theta.
+baseline is -1.0 to 1.0
+next is 0.0 to 0.0
+then try -1.0 to 0.0
+and -.01 to 0.0
+
+Note much difference when running baseline.  Use -1.0 to 0.0 for other testing.
+
+
+Test alpha

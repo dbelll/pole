@@ -1,10 +1,35 @@
--------------
- poleprofile
--------------
-[POLE][TRIALS   1024][TIME_STEPS  32768][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      1][ALPHA 0.5000][EPSILON 0.0000][GAMMA 0.9500][LAMBDA 0.7000][TEST_INTERVAL  32768][TEST_REPS  16384][DIVS  3  2  3  2]
+[Session started at 2010-10-24 22:03:26 -0400.]
+GNU gdb 6.3.50-20050815 (Apple version gdb-1472) (Wed Jul 21 10:53:12 UTC 2010)
+Copyright 2004 Free Software Foundation, Inc.
+GDB is free software, covered by the GNU General Public License, and you are
+welcome to change it and/or distribute copies of it under certain conditions.
+Type "show copying" to see the conditions.
+There is absolutely no warranty for GDB.  Type "show warranty" for details.
+This GDB was configured as "x86_64-apple-darwin".tty /dev/ttys000
+Loading program into debugger…
+Program loaded.
+run
+[Switching to process 12618]
 Running…
-    2683.626 ms for run pole kernel on GPU
-       0.658 ms for reduce GPU results and copy data back to host
+[POLE][TRIALS      8][TIME_STEPS  16384][SHARING_INTERVAL   2048][AGENT_GROUP_SIZE    256][ALPHA 0.9000][EPSILON 0.0000][GAMMA 0.9000][LAMBDA 0.9000][TEST_INTERVAL   2048][TEST_REPS   8192][RESTART_INTERVAL   2048][DIVS  3  2  3  2][CHUNK_INTERVAL   2048][INIT_SHARING_WGT 0.5000][INIT_THETA_MIN-0.1000][INIT_THETA_MAX 0.1000]
+--------|
+........
+    2629.075 ms for total GPU time
+       1.071 ms for pole_clear_trace_kernel
+    2388.992 ms for pole_learn_kernel
+       4.349 ms for pole_share_kernel
+     227.816 ms for pole_test_kernel
+       0.731 ms for pole_reduce_kernel
 GPU: 
-    TEST  Avg Fails
-   [   0]   2.5449
+    TEST  Avg Episode
+   [   0]     2239
+   [   1]     8118
+   [   2]     8023
+   [   3]     8061
+   [   4]     8073
+   [   5]     8105
+   [   6]     8102
+   [   7]     8106
+
+Debugger stopped.
+Program exited with status value:0.
