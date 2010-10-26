@@ -29,11 +29,14 @@ Use different re-start intervals
 
 Assign a wider range for initial states
 
+Give agents a permanent small bias for each feature/action so when the Q-values are close together, agents will take different paths
+
 
 ------------------------------
 Optimization
 ------------------------------
 Use a circular buffer for eligibity traces and feature number --- This would increase non-coalesced global memory accesses, many not work well.
+
 Cache the last feature and <other values>  check the cache first before going to global memory for the values.
 
 Try using epsilon - allow threads to learn more

@@ -14,3 +14,16 @@ Ideas
 create a version using neural-net
 	1 node (adaline)
 	multi-node
+
+
+////////////////////////////////////////////
+
+Pole
+	Differentiation -	Store a bias value for each agent/feature/action.
+						Add the bias after calculating the shared theta values.
+	
+Bandit
+	Review baseline results
+	Time for single trial runs
+	Run large agent groups
+	

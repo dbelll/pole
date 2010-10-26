@@ -987,14 +987,11 @@ __global__ void pole_share_kernel(unsigned numShareBlocks)
 	float new_theta = 0.0f;
 	if (s_wgt[0] > 0.0f) new_theta = s_theta[0] / s_wgt[0];
 
-//	__syncthreads();
 	for (int i = 0; i < numShareBlocks; i++) {
 		unsigned iG = iGlobal + i * blockDim.x;
 		if (s_wgt[0] > 0.0f) dc_theta[iG] = new_theta;
 		dc_wgt[iG] = dc_initial_sharing_wgt;
 	}
-
-	// **TODO** reset all weights more efficiently with a straight mem copy? or separate kernel?
 }
 
 
