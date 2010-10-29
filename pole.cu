@@ -39,6 +39,7 @@ __constant__ unsigned dc_test_reps;
 // fixed pointers are stored in constant memory on the device
 __constant__ unsigned *dc_seeds;
 __constant__ float *dc_theta;
+__constant__ float *dc_theta_bias;
 __constant__ float *dc_e;
 __constant__ float *dc_wgt;
 __constant__ float *dc_s;
@@ -50,6 +51,7 @@ static AGENT_DATA *last_CPU_agent_dump;
 // device pointers are stored here so they can be freed prior to exit
 static unsigned *d_seeds;
 static float *d_theta;
+static float *d_theta_bias;
 static float *d_e;
 static float *d_wgt;
 static float *d_s;
@@ -462,6 +464,21 @@ float *create_theta(unsigned num_agents, unsigned num_features, unsigned num_act
 	return theta;
 }
 
+// create theta_bias amounts set initially to random values between -THETA_BIAS_MAX and +THEAT_BIAS_MAX
+float *create_theta_bias(unsigned num_agents, unsigned num_features, unsigned num_actions, float theta_bias_max, unsigned *seeds)
+{
+#ifdef VERBOSE
+	printf("create_theta_bias for %d agents and %d features\n", num_agents, num_features);
+#endif
+	float *bias = (float *)malloc(num_agents * num_features * num_actions * sizeof(float));
+	for (int a = 0; a < num_agents; a++) {
+		for (int fa = 0; fa < num_features * num_actions; fa++) {
+			bias[fa * num_agents + a] = random_interval(seeds+a, num_agents, theta_bias_max);
+		}
+	}
+	return bias;
+}
+
 // initial eligibility traces to 0.0f
 float *create_e(unsigned num_agents, unsigned num_features, unsigned num_actions)
 {
@@ -546,6 +563,7 @@ AGENT_DATA *initialize_agentsCPU()
 	AGENT_DATA *ag = (AGENT_DATA *)malloc(sizeof(AGENT_DATA));
 	ag->seeds = create_seeds(_p.agents);
 	ag->theta = create_theta(_p.agents, _p.num_features, _p.num_actions, _p.initial_theta_min, _p.initial_theta_max);
+	ag->theta_bias = create_theta_bias(_p.agents, _p.num_features, _p.num_actions, _p.theta_bias_max, ag->seeds);
 	ag->e = create_e(_p.agents, _p.num_features, _p.num_actions);
 	ag->wgt = create_wgt(_p.agents, _p.num_features, _p.num_actions, _p.initial_sharing_wgt);
 	ag->s = create_states(_p.agents, ag->seeds);
@@ -663,16 +681,16 @@ void share_theta(AGENT_DATA *ag)
 			float block_wgt = 0.0f;
 			// accumulate wgtd theta and total wgt
 			for (int a = agent0; a < agent0 + _p.agent_group_size; a++) {
-				block_theta += ag->theta[a] * ag->wgt[a];
+				block_theta += (ag->theta[a] - ag->theta_bias[a]) * ag->wgt[a];	// remove bias
 				block_wgt += ag->wgt[a];
 			}
 			if (block_wgt > 0.0f){
 				block_theta /= block_wgt;	// convert to the average theta
-				block_wgt /= _p.agent_group_size;		// evenly divide total wgt over all agents
-			}
-			if (block_wgt > 0.0f) {
+//				block_wgt /= _p.agent_group_size;		// evenly divide total wgt over all agents
+
+				// store the new theta (with bias) and reset the sharing weight to initial value
 				for (int a = agent0; a < agent0 + _p.agent_group_size; a++) {
-					ag->theta[a] = block_theta;
+					ag->theta[a] = block_theta + ag->theta_bias[a];		// add in bias
 					ag->wgt[a] = _p.initial_sharing_wgt;
 				}
 			}
@@ -892,6 +910,7 @@ void initialize_agentsGPU(AGENT_DATA *agCPU)
 #endif
 	d_seeds = device_copyui(agCPU->seeds, _p.agents * 4);
 	d_theta = device_copyf(agCPU->theta, _p.agents * _p.num_features * _p.num_actions);
+	d_theta_bias = device_copyf(agCPU->theta_bias, _p.num_features * _p.num_actions);
 	d_e = device_copyf(agCPU->e, _p.agents * _p.num_features * _p.num_actions);
 	d_wgt = device_copyf(agCPU->wgt, _p.agents * _p.num_features * _p.num_actions);
 	d_s = device_copyf(agCPU->s, _p.agents * _p.state_size);
@@ -900,6 +919,7 @@ void initialize_agentsGPU(AGENT_DATA *agCPU)
 	
 	cudaMemcpyToSymbol("dc_seeds", &d_seeds, sizeof(unsigned *));
 	cudaMemcpyToSymbol("dc_theta", &d_theta, sizeof(float *));
+	cudaMemcpyToSymbol("dc_theta_bias", &d_theta_bias, sizeof(float *));
 	cudaMemcpyToSymbol("dc_e", &d_e, sizeof(float *));
 	cudaMemcpyToSymbol("dc_wgt", &d_wgt, sizeof(float *));
 	cudaMemcpyToSymbol("dc_s", &d_s, sizeof(float *));
@@ -962,7 +982,7 @@ __global__ void pole_share_kernel(unsigned numShareBlocks)
 	extern __shared__ float s_theta[];
 	float *s_wgt = s_theta + blockDim.x;
 	
-	s_wgt[idx] = dc_wgt[iGlobal];
+	s_wgt[idx] = dc_wgt[iGlobal] - dc_theta_bias[iGlobal]; // remove bias
 	s_theta[idx] = dc_theta[iGlobal] * s_wgt[idx];
 	
 	// repeat the process if there are more than one share blocks to be reduced
@@ -984,14 +1004,17 @@ __global__ void pole_share_kernel(unsigned numShareBlocks)
 	}
 	
 	// copy the values at index 0 to all threads
+	
+	// **TODO** rearrange to only do all calculations when s_wgt[0] > 0.0f
 	float new_theta = 0.0f;
 	if (s_wgt[0] > 0.0f) new_theta = s_theta[0] / s_wgt[0];
 
 	for (int i = 0; i < numShareBlocks; i++) {
 		unsigned iG = iGlobal + i * blockDim.x;
-		if (s_wgt[0] > 0.0f) dc_theta[iG] = new_theta;
+		if (s_wgt[0] > 0.0f) dc_theta[iG] = new_theta + dc_theta_bias[iG];
 		dc_wgt[iG] = dc_initial_sharing_wgt;
 	}
+	// **-------------
 }
 
 

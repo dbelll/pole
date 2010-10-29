@@ -52,6 +52,8 @@ void display_help()
 	printf("  --TEST_REPS			duration of test in time steps\n");
 	printf("  --RESTART_INTERVAL    time steps between random restarts\n");
 	
+	printf("  --THETA_BIAS_MAX      the maximum magnitude of theta bias\n");
+	
 	printf("  --HELP                print this help message\n");
 	printf("default values will be used for any parameters not on command line\n");
 }
@@ -74,6 +76,8 @@ PARAMS read_params(int argc, const char **argv)
 	p.initial_sharing_wgt = GET_PARAMF("INIT_SHARING_WGT", 0.5f);
 	p.initial_theta_min = GET_PARAMF("INIT_THETA_MIN", 0.0f);
 	p.initial_theta_max = GET_PARAMF("INIT_THETA_MAX", 1.0f);
+	
+	p.theta_bias_max = GET_PARAMF("THETA_BIAS_MAX", 0.0f);
 	
 	// set sharing interval to total time steps if only one agent
 	if (p.agents == 1) p.sharing_interval = p.time_steps;
