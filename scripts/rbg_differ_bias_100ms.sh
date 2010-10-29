@@ -14,7 +14,7 @@ _restart="--RESTART_INTERVAL=2048"
 
 _sharing="--SHARING_INTERVAL=128"
 
-_wgtinfo="--INIT_SHARING_WGT=0.50 --INIT_THETA_MIN=-0.1 --INIT_THETA_MAX=0.1 --THETA_BIAS_MAX=10.0"
+_wgtinfo="--INIT_SHARING_WGT=0.50 --INIT_THETA_MIN=-0.1 --INIT_THETA_MAX=0.1 --THETA_BIAS_MAX=0.1"
 
 
 _a=0.90
@@ -48,17 +48,17 @@ _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
 _trials="--TRIALS=1"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
 
-$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
-$_location/pole $_common --AGENT_GROUP_SIZE=512 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=512 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
-$_location/pole $_common --AGENT_GROUP_SIZE=1024 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=1024 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
-$_location/pole $_common --AGENT_GROUP_SIZE=2048 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=2048 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
-$_location/pole $_common --AGENT_GROUP_SIZE=4096 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=4096 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
-#$_location/pole $_common --AGENT_GROUP_SIZE=8192 --TIME_STEPS=4096 --TEST_INTERVAL=128
+#$_location/pole $_common --AGENT_GROUP_SIZE=8192 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
 #---------------------------------------------------
 #    repeat by learning time for multiple trials
@@ -66,15 +66,15 @@ $_location/pole $_common --AGENT_GROUP_SIZE=4096 --TIME_STEPS=4096 --TEST_INTERV
 _trials="--TRIALS=64"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
 
-$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
-$_location/pole $_common --AGENT_GROUP_SIZE=512 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=512 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
-$_location/pole $_common --AGENT_GROUP_SIZE=1024 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=1024 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
-$_location/pole $_common --AGENT_GROUP_SIZE=2048 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=2048 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
-$_location/pole $_common --AGENT_GROUP_SIZE=4096 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=4096 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
-#$_location/pole $_common --AGENT_GROUP_SIZE=8192 --TIME_STEPS=4096 --TEST_INTERVAL=64
+#$_location/pole $_common --AGENT_GROUP_SIZE=8192 --TIME_STEPS=1024 --TEST_INTERVAL=16
 
