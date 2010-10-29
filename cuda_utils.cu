@@ -45,9 +45,12 @@ float *device_copyf(float *data, unsigned count_data)
 	float *d_data = NULL;
 	unsigned size_data = count_data * sizeof(float);
 	#ifdef TRACE_DEVICE_ALLOCATIONS
-		printf("[device_copyf] float data at 0x%p count = %d\n", data, count_data);
+		printf("[device_copyf] float host data at 0x%p count = %d, ", data, count_data);
 	#endif
 	CUDA_SAFE_CALL(cudaMalloc((void **)&d_data, size_data));
+	#ifdef TRACE_DEVICE_ALLOCATIONS
+		printf("copied to 0x%p\n", d_data);
+	#endif
 	CUDA_SAFE_CALL(cudaMemcpy(d_data, data, size_data, cudaMemcpyHostToDevice));
 	return d_data;
 }

@@ -221,7 +221,8 @@ __device__ __host__ unsigned divs_for_feature(unsigned feature)
 	return divs;
 }
 
-// calculate the Q value for an action from a state
+// lookup the Q value for an action from a state
+// can also be used to lookup theta_bias values
 __host__ float calc_Q(float *s, unsigned a, float *theta, unsigned stride, unsigned num_actions)
 {
 	// only one feature corresponds with any given state
@@ -270,6 +271,46 @@ __host__ unsigned best_action(float *s, float *theta, float *Q, unsigned stride,
 	return best_action;
 }
 
+__host__ unsigned best_action_biased(float *s, float *theta, float *theta_bias, float *Q, unsigned stride, unsigned num_actions)
+{
+	// calculate the Q value for each action
+	Q[0] = calc_Q(s, 0, theta, stride, num_actions);
+	float bias = calc_Q(s, 0, theta_bias, stride, num_actions);
+	unsigned best_action = 0;
+	float bestQ_biased = Q[0] + bias;
+#ifdef LOG_BIAS
+	printf("Q[0]=%7.4f, bias = %7.4f ...", Q[0], bias);
+#endif
+	for (int a = 1; a < num_actions; a++) {
+		Q[a * stride] = calc_Q(s, a, theta, stride, num_actions);
+		bias = calc_Q(s, a, theta_bias, stride, num_actions);
+#ifdef LOG_BIAS
+		printf("Q[%d]=%7.4f, bias = %7.4f ...", a, Q[a*stride], bias);
+#endif
+		if ((Q[a * stride]+bias) > bestQ_biased) {
+			bestQ_biased = (Q[a * stride]+bias);
+			best_action = a;
+#ifdef LOG_BIAS
+			if (Q[0] > Q[a*stride]) {
+				printf("<----------- bias applied !!!!");
+			}
+#endif
+		}
+#ifdef LOG_BIAS
+		else {
+			if (Q[0] < Q[a*stride]) {
+				printf("<----------- bias applied !!!!");
+			}
+		}
+#endif
+
+	}
+#ifdef LOG_BIAS
+	printf("best action is %d\n", best_action);
+#endif
+	return best_action;
+}
+
 __device__ unsigned best_actionGPU(float *s, float *theta, float *Q, unsigned feature)
 {
 	// calculate the Q value for each action
@@ -283,6 +324,27 @@ __device__ unsigned best_actionGPU(float *s, float *theta, float *Q, unsigned fe
 		Q[index] = calc_QGPU(s, a, theta, feature);
 		if (Q[index] > bestQ) {
 			bestQ = Q[index];
+			best_action = a;
+		}
+	}
+	return best_action;
+}
+
+__device__ unsigned best_action_biasedGPU(float *s, float *theta, float *theta_bias, float *Q, unsigned feature)
+{
+	// calculate the Q value for each action
+	Q[0] = calc_QGPU(s, 0, theta, feature);
+	float bias = calc_QGPU(s, 0, theta_bias, feature);
+	unsigned best_action = 0;
+	float bestQ_biased = Q[0] + bias;
+
+	unsigned index = BLOCK_SIZE;
+
+	for (int a = 1; a < NUM_ACTIONS; a++, index += BLOCK_SIZE) {
+		Q[index] = calc_QGPU(s, a, theta, feature);
+		bias = calc_QGPU(s, a, theta_bias, feature);
+		if ((Q[index]+bias) > bestQ_biased) {
+			bestQ_biased = (Q[index]+bias);
 			best_action = a;
 		}
 	}
@@ -303,6 +365,19 @@ __host__ unsigned choose_action(float *s, float *theta, float epsilon, unsigned 
 	return a;
 }
 
+// choose action from current state, storing Q values for each possible action in Q
+__host__ unsigned choose_action_biased(float *s, float *theta, float *theta_bias, float epsilon, unsigned stride, float *Q, unsigned num_actions, unsigned *seeds)
+{
+	// always calcualte the best action and store all the Q values for each action
+	unsigned a = best_action_biased(s, theta, theta_bias, Q, stride, num_actions);
+	if (epsilon > 0.0f && RandUniform(seeds, stride) < epsilon){
+		// choose random action
+		float r = RandUniform(seeds, stride);
+		a = r * num_actions;
+	}
+	return a;
+}
+
 __device__ unsigned choose_actionGPU(float *s, float *theta, float *Q, unsigned *seeds, unsigned feature)
 {
 	// always calcualte the best action and store all the Q values for each action
@@ -314,6 +389,19 @@ __device__ unsigned choose_actionGPU(float *s, float *theta, float *Q, unsigned 
 	}
 	return a;
 }
+
+__device__ unsigned choose_action_biasedGPU(float *s, float *theta, float *theta_bias, float *Q, unsigned *seeds, unsigned feature)
+{
+	// always calcualte the best action and store all the Q values for each action
+	unsigned a = best_action_biasedGPU(s, theta, theta_bias, Q, feature);
+	if (dc_epsilon > 0.0f && RandUniform(seeds, dc_agents) < dc_epsilon){
+		// choose random action
+		float r = RandUniform(seeds, dc_agents);
+		a = r * NUM_ACTIONS;
+	}
+	return a;
+}
+
 
 
 // Update eligibility traces based on action and state
@@ -402,13 +490,14 @@ void dump_agent(AGENT_DATA *ag, unsigned agent)
 	printf("   seeds = %u, %u, %u, %u\n", ag->seeds[agent], ag->seeds[agent + _p.agents], 
 									   ag->seeds[agent + 2*_p.agents], ag->seeds[agent + 3*_p.agents]);
 #ifdef AGENT_DUMP_INCLUDE_THETA_E
-	printf("FEATURE       ACTION    THETA       E         WGT\n");
+	printf("FEATURE       ACTION    THETA       E         WGT     BIAS\n");
 	for (int f = 0; f < _p.num_features; f++) {
 		for (int action = 0; action < _p.num_actions; action++) {
-			printf("%7d %4x %7d %9.4f %9.4f %9.2f\n", f, divs_for_feature(f), action, 
+			printf("%7d %4x %7d %9.4f %9.4f %9.2f %9.4f\n", f, divs_for_feature(f), action, 
 				   ag->theta[agent + (action + f * _p.num_actions) * _p.agents], 
 				   ag->e[agent + (action + f * _p.num_actions) * _p.agents],
-				   ag->wgt[agent + (action + f * _p.num_actions) * _p.agents]);
+				   ag->wgt[agent + (action + f * _p.num_actions) * _p.agents],
+				   ag->theta_bias[agent + (action + f * _p.num_actions) * _p.agents]);
 		}
 	}
 #endif
@@ -465,7 +554,7 @@ float *create_theta(unsigned num_agents, unsigned num_features, unsigned num_act
 }
 
 // create theta_bias amounts set initially to random values between -THETA_BIAS_MAX and +THEAT_BIAS_MAX
-float *create_theta_bias(unsigned num_agents, unsigned num_features, unsigned num_actions, float theta_bias_max, unsigned *seeds)
+float *create_theta_bias(unsigned num_agents, unsigned num_features, unsigned num_actions, float theta_bias_max)
 {
 #ifdef VERBOSE
 	printf("create_theta_bias for %d agents and %d features\n", num_agents, num_features);
@@ -473,7 +562,12 @@ float *create_theta_bias(unsigned num_agents, unsigned num_features, unsigned nu
 	float *bias = (float *)malloc(num_agents * num_features * num_actions * sizeof(float));
 	for (int a = 0; a < num_agents; a++) {
 		for (int fa = 0; fa < num_features * num_actions; fa++) {
-			bias[fa * num_agents + a] = random_interval(seeds+a, num_agents, theta_bias_max);
+			if (theta_bias_max > 0.0f) {
+				bias[fa * num_agents + a] =  random_interval(g_seeds, 1, theta_bias_max);
+			}else {
+				bias[fa * num_agents + a] = 0.0f;
+			}
+
 		}
 	}
 	return bias;
@@ -563,7 +657,7 @@ AGENT_DATA *initialize_agentsCPU()
 	AGENT_DATA *ag = (AGENT_DATA *)malloc(sizeof(AGENT_DATA));
 	ag->seeds = create_seeds(_p.agents);
 	ag->theta = create_theta(_p.agents, _p.num_features, _p.num_actions, _p.initial_theta_min, _p.initial_theta_max);
-	ag->theta_bias = create_theta_bias(_p.agents, _p.num_features, _p.num_actions, _p.theta_bias_max, ag->seeds);
+	ag->theta_bias = create_theta_bias(_p.agents, _p.num_features, _p.num_actions, _p.theta_bias_max);
 	ag->e = create_e(_p.agents, _p.num_features, _p.num_actions);
 	ag->wgt = create_wgt(_p.agents, _p.num_features, _p.num_actions, _p.initial_sharing_wgt);
 	ag->s = create_states(_p.agents, ag->seeds);
@@ -644,6 +738,17 @@ void randomize_all_states(AGENT_DATA *ag)
 	}
 }
 
+void randomize_all_states_biased(AGENT_DATA *ag)
+{
+	// randomize the state for all agents, preparing for a new test session
+	for (int agent = 0; agent < _p.agents; agent++) {
+		randomize_state(ag->s + agent,  ag->seeds + agent, _p.agents);
+		ag->action[agent] = choose_action_biased(ag->s + agent, ag->theta + agent, ag->theta_bias + agent, _p.epsilon, _p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
+		update_trace(ag->action[agent], ag->s + agent, ag->e + agent, _p.num_features, 
+												_p.num_actions, _p.agents);
+	}
+}
+
 void learning_session(AGENT_DATA *ag)
 {
 	// run learning session for all agents for one chunk of time
@@ -654,8 +759,7 @@ void learning_session(AGENT_DATA *ag)
 			unsigned fail = terminal_state(ag->s + agent, _p.agents);
 			if (fail) randomize_state(ag->s + agent, ag->seeds + agent, _p.agents);
 			float Q_a = ag->Q[agent + ag->action[agent] * _p.agents];
-			ag->action[agent] = choose_action(ag->s + agent, ag->theta + agent, _p.epsilon,
-								_p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
+			ag->action[agent] = choose_action_biased(ag->s + agent, ag->theta + agent, ag->theta_bias + agent, _p.epsilon, _p.agents, ag->Q + agent, _p.num_actions, ag->seeds + agent);
 			float Q_a_prime = ag->Q[agent + ag->action[agent] * _p.agents];
 			float delta = reward - Q_a + (fail ? 0 : _p.gamma * Q_a_prime);
 			update_thetas(ag->theta + agent, ag->e + agent, ag->wgt + agent, _p.alpha, delta, _p.num_features, _p.agents, _p.num_actions);
@@ -681,7 +785,7 @@ void share_theta(AGENT_DATA *ag)
 			float block_wgt = 0.0f;
 			// accumulate wgtd theta and total wgt
 			for (int a = agent0; a < agent0 + _p.agent_group_size; a++) {
-				block_theta += (ag->theta[a] - ag->theta_bias[a]) * ag->wgt[a];	// remove bias
+				block_theta += ag->theta[a] * ag->wgt[a];
 				block_wgt += ag->wgt[a];
 			}
 			if (block_wgt > 0.0f){
@@ -690,7 +794,7 @@ void share_theta(AGENT_DATA *ag)
 
 				// store the new theta (with bias) and reset the sharing weight to initial value
 				for (int a = agent0; a < agent0 + _p.agent_group_size; a++) {
-					ag->theta[a] = block_theta + ag->theta_bias[a];		// add in bias
+					ag->theta[a] = block_theta;		// add in bias
 					ag->wgt[a] = _p.initial_sharing_wgt;
 				}
 			}
@@ -743,7 +847,7 @@ void run_CPU_aux(AGENT_DATA *ag, RESULTS *r)
 #ifdef VERBOSE
 			printf("randomizing state ...\n");
 #endif
-			randomize_all_states(ag);
+			randomize_all_states_biased(ag);
 		}
 #ifdef VERBOSE
 		printf("learning session ...\n");
@@ -802,6 +906,7 @@ void free_agentsCPU(AGENT_DATA *ag)
 	if (ag) {
 		if (ag->seeds) free(ag->seeds);
 		if (ag->theta) free(ag->theta);
+		if (ag->theta_bias) free(ag->theta_bias);
 		if (ag->e) free(ag->e);
 		if (ag->wgt) free(ag->wgt);
 		if (ag->s) free(ag->s);
@@ -819,6 +924,7 @@ AGENT_DATA *copy_GPU_agents()
 	AGENT_DATA *agGPUcopy = (AGENT_DATA *)malloc(sizeof(AGENT_DATA));
 	agGPUcopy->seeds = host_copyui(d_seeds, _p.agents * 4);
 	agGPUcopy->theta = host_copyf(d_theta, _p.agents * _p.num_features * _p.num_actions);
+	agGPUcopy->theta_bias = host_copyf(d_theta_bias, _p.agents * _p.num_features * _p.num_actions);
 	agGPUcopy->e = host_copyf(d_e, _p.agents * _p.num_features * _p.num_actions);
 	agGPUcopy->wgt = host_copyf(d_wgt, _p.agents * _p.num_features * _p.num_actions);
 	agGPUcopy->s = host_copyf(d_s, _p.agents * _p.state_size);
@@ -910,7 +1016,7 @@ void initialize_agentsGPU(AGENT_DATA *agCPU)
 #endif
 	d_seeds = device_copyui(agCPU->seeds, _p.agents * 4);
 	d_theta = device_copyf(agCPU->theta, _p.agents * _p.num_features * _p.num_actions);
-	d_theta_bias = device_copyf(agCPU->theta_bias, _p.num_features * _p.num_actions);
+	d_theta_bias = device_copyf(agCPU->theta_bias, _p.agents * _p.num_features * _p.num_actions);
 	d_e = device_copyf(agCPU->e, _p.agents * _p.num_features * _p.num_actions);
 	d_wgt = device_copyf(agCPU->wgt, _p.agents * _p.num_features * _p.num_actions);
 	d_s = device_copyf(agCPU->s, _p.agents * _p.state_size);
@@ -982,8 +1088,8 @@ __global__ void pole_share_kernel(unsigned numShareBlocks)
 	extern __shared__ float s_theta[];
 	float *s_wgt = s_theta + blockDim.x;
 	
-	s_wgt[idx] = dc_wgt[iGlobal] - dc_theta_bias[iGlobal]; // remove bias
-	s_theta[idx] = dc_theta[iGlobal] * s_wgt[idx];
+	s_wgt[idx] = dc_wgt[iGlobal];
+	s_theta[idx] = dc_theta[iGlobal] * s_wgt[idx];  // remove bias
 	
 	// repeat the process if there are more than one share blocks to be reduced
 	for (int i = 1; i < numShareBlocks; i++) {
@@ -1011,7 +1117,7 @@ __global__ void pole_share_kernel(unsigned numShareBlocks)
 
 	for (int i = 0; i < numShareBlocks; i++) {
 		unsigned iG = iGlobal + i * blockDim.x;
-		if (s_wgt[0] > 0.0f) dc_theta[iG] = new_theta + dc_theta_bias[iG];
+		if (s_wgt[0] > 0.0f) dc_theta[iG] = new_theta;
 		dc_wgt[iG] = dc_initial_sharing_wgt;
 	}
 	// **-------------
@@ -1035,6 +1141,8 @@ __global__ void pole_clear_trace_kernel()
 		Then repeat the learning process for specified number of iterations
 	
 	Ending state is saved.
+	
+	Choosed an action based on biased theta values
 */
 __global__ void pole_learn_kernel(unsigned steps, unsigned isRestart)
 {
@@ -1050,7 +1158,7 @@ __global__ void pole_learn_kernel(unsigned steps, unsigned isRestart)
 		// randomize state, determine first action and update eligibility trace
 		randomize_stateGPU(s_s + idx, dc_seeds + iGlobal);
 		unsigned feature = feature_for_state(s_s + idx, BLOCK_SIZE);
-		s_action[idx] = choose_actionGPU(s_s + idx, dc_theta + iGlobal, s_Q + idx, dc_seeds + iGlobal, feature);
+		s_action[idx] = choose_action_biasedGPU(s_s + idx, dc_theta + iGlobal, dc_theta_bias + iGlobal, s_Q + idx, dc_seeds + iGlobal, feature);
 		// s_Q contains Q values for each action from the current state
 		// s_action contains the chosen action to be taken from the current state
 		update_traceGPU(s_action[idx], s_s + idx, dc_e + iGlobal, feature);
@@ -1067,7 +1175,7 @@ __global__ void pole_learn_kernel(unsigned steps, unsigned isRestart)
 		unsigned feature = feature_for_state(s_sidx, BLOCK_SIZE);
 		// now may be in a different state
 		float Q_a = s_Q[idx + s_action[idx] * BLOCK_SIZE];
-		s_action[idx] = choose_actionGPU(s_sidx, dc_theta + iGlobal, s_Qidx, dc_seeds + iGlobal, feature);
+		s_action[idx] = choose_action_biasedGPU(s_sidx, dc_theta + iGlobal, dc_theta_bias + iGlobal, s_Qidx, dc_seeds + iGlobal, feature);
 		float Q_a_prime = s_Q[idx + s_action[idx] * BLOCK_SIZE];
 		float delta = reward - Q_a + (fail ? 0 : dc_gamma * Q_a_prime);
 		update_thetasGPU(dc_theta + iGlobal, dc_e + iGlobal, dc_wgt + iGlobal, delta);
@@ -1119,7 +1227,7 @@ void run_GPU(RESULTS *r)
 	// eligibility trace, and state values
 
 #ifdef DUMP_INITIAL_AGENTS
-	dump_agents_GPU("initial agents on GPU", ag);
+	dump_agents_GPU("initial agents on GPU", 0);
 #endif
 	
 	// setup constant memory on device

@@ -172,10 +172,10 @@ PARAMS read_params(int argc, const char **argv)
 	
 	printf("[POLE][TRIALS%7d][TIME_STEPS%7d][SHARING_INTERVAL%7d][AGENT_GROUP_SIZE%7d][ALPHA%7.4f]"
 		   "[EPSILON%7.4f][GAMMA%7.4f][LAMBDA%7.4f][TEST_INTERVAL%7d][TEST_REPS%7d]"
-		   "[RESTART_INTERVAL%7d][DIVS%3d%3d%3d%3d][CHUNK_INTERVAL%7d][INIT_SHARING_WGT%7.4f][INIT_THETA_MIN%7.4f][INIT_THETA_MAX%7.4f]\n", 
+		   "[RESTART_INTERVAL%7d][DIVS%3d%3d%3d%3d][CHUNK_INTERVAL%7d][INIT_SHARING_WGT%7.4f][INIT_THETA_MIN%7.4f][INIT_THETA_MAX%7.4f][THETA_BIAS_MAX%7.4f]\n", 
 		   p.trials, p.time_steps, p.sharing_interval, p.agent_group_size, p.alpha, p.epsilon, 
 		   p.gamma, p.lambda, p.test_interval, p.test_reps, p.restart_interval, 
-		   p.divs_x, p.divs_dx, p.divs_alpha, p.divs_dalpha, p.chunk_interval, p.initial_sharing_wgt, p.initial_theta_min, p.initial_theta_max);
+		   p.divs_x, p.divs_dx, p.divs_alpha, p.divs_dalpha, p.chunk_interval, p.initial_sharing_wgt, p.initial_theta_min, p.initial_theta_max, p.theta_bias_max);
 
 	return p;
 }
