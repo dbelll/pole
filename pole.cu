@@ -802,6 +802,16 @@ void share_theta(AGENT_DATA *ag)
 	}
 }
 
+/*
+	Multiply all theta bias amounts by a factor, k
+*/
+void reduce_theta_bias(AGENT_DATA *ag, float k)
+{
+	for (int i = 0; i < _p.agents * _p.num_features * _p.num_actions; i++) {
+		ag->theta_bias[i] *= k;
+	}
+}
+
 // helper functions to print a timing indicator to stdout
 static int _k_ = 1;
 void timing_feedback_header(unsigned n)
@@ -860,6 +870,7 @@ void run_CPU_aux(AGENT_DATA *ag, RESULTS *r)
 			printf("sharing ...\n");
 #endif
 			share_theta(ag);
+			reduce_theta_bias(ag, THETA_BIAS_REDUCTION_FACTOR);
 		}
 		
 		if (0 == ((i+1)%_p.chunks_per_test)) {
@@ -1134,6 +1145,15 @@ __global__ void pole_clear_trace_kernel()
 }
 
 /*
+	multiply all theta bias values by a factor, k
+*/
+__global__ void pole_reduce_bias_kernel(float k)
+{
+	unsigned iGlobal = threadIdx.x + (blockIdx.x + blockIdx.y * gridDim.x) * blockDim.x;
+	if (iGlobal < dc_num_featuresXactionsXagents) dc_theta_bias[iGlobal] *= k;
+}
+
+/*
 	Do a learning session for specified number of steps.
 	On entry, the theta values are valid from prior learning episodes.
 	
@@ -1316,6 +1336,11 @@ void run_GPU(RESULTS *r)
 			pole_share_kernel<<<shareGridDim, shareBlockDim, 2*shareBlockDim.x * sizeof(float)>>>(numShareBlocks);
 			CUDA_EVENT_STOP(timeShare);
 			CUT_CHECK_ERROR("pole_share_kernel execution failed");
+
+			CUDA_EVENT_START;
+			pole_reduce_bias_kernel<<<clearTraceGridDim, clearTraceBlockDim>>>(THETA_BIAS_REDUCTION_FACTOR);
+			CUDA_EVENT_STOP(timeClear);
+			CUT_CHECK_ERROR("pole_reduce_bias_kernel execution failed");
 		}
 		
 		if (0 == ((i+1) % _p.chunks_per_test)) {

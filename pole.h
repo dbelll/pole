@@ -38,6 +38,8 @@
 #define NUM_STATE_VALUES 4
 #define NUM_ACTIONS 2
 
+#define THETA_BIAS_REDUCTION_FACTOR 0.5f
+
 // various constants
 #define GRAV -9.81f			// gravitational acceleration in meters per second squared
 #define CART_MASS 1.0f		// mass of cart in kilograms
