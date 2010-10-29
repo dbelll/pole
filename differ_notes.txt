@@ -1,0 +1,10 @@
+Differentiation Notes
+
+1. Give each agent a bias amount for every feature/action.  The bias will be added to that agent's theta value.  This only applies if there is more than one agent in a group
+	a. Allocate and create the array of bias values when creating the agents
+	b. Add the bias amount to theta when storing the amount after doing the sharing calculations.
+	c. The amount of possible bias will be calculated based on THETA_BIAS_MAX parameter and stored in _p.theta_bias_max
+	d1. Possibility: make sure total bias for each feature/action sums to 0.0f so the average theta is not impacted.  *** This won't work because weights for calculating the groups average theta are not uniform by agent ***
+	d2. Subtract the bias when calculating average shared theta's so group's average theta is not impacted by the bias.
+	
+	Bias is only important if it exceeds the difference between theta values for two actions in one state.  
