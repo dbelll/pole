@@ -14,7 +14,7 @@ _restart="--RESTART_INTERVAL=2048"
 
 _sharing="--SHARING_INTERVAL=128"
 
-_wgtinfo="--INIT_SHARING_WGT=0.50 --INIT_THETA_MIN=-0.1 --INIT_THETA_MAX=0.1"
+_wgtinfo="--INIT_SHARING_WGT=0.50 --INIT_THETA_MIN=-0.1 --INIT_THETA_MAX=0.1 --THETA_BIAS_MAX=5.0"
 
 
 _a=0.90
@@ -27,7 +27,7 @@ _parms="--ALPHA=$_a --EPSILON=$_e --GAMMA=$_g --LAMBDA=$_l"
 #-----------------------------
 #     by agent-time steps
 #-----------------------------
-_trials="--TRIALS=16"
+_trials="--TRIALS=64"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
 
 #$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=32768 --TEST_INTERVAL=512

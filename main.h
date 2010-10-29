@@ -15,7 +15,7 @@
 //#define VERBOSE
 
 //#define DUMP_INITIAL_AGENTS
-#define AGENT_DUMP_INCLUDE_THETA_E
+//#define AGENT_DUMP_INCLUDE_THETA_E
 
 //#define LOG_BIAS
 
@@ -23,6 +23,6 @@
 
 //#define DUMP_AGENT_STATE_ON_FAILURE
 
-#define DUMP_TERMINAL_AGENT_STATE
+//#define DUMP_TERMINAL_AGENT_STATE
 
 #endif
