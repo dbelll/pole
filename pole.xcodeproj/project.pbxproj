@@ -13,6 +13,7 @@
 		10294DA311A1B99300AAF551 /* pole_profile_log.csv */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = pole_profile_log.csv; sourceTree = "<group>"; };
 		1051E12C121F06E200BB27B0 /* main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = main.h; sourceTree = "<group>"; };
 		1051E2C91220865A00BB27B0 /* notes.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notes.txt; sourceTree = "<group>"; };
+		1066300C127AF93B0044E2E2 /* pole debug GPU vs CPU sharing output */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "pole debug GPU vs CPU sharing output"; sourceTree = "<group>"; };
 		106F8AE2125B4C6E00DD0860 /* cuda_row_reduction.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cuda_row_reduction.h; sourceTree = "<group>"; };
 		106F8AE3125B4C6E00DD0860 /* cuda_row_reduction.cu */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cuda; path = cuda_row_reduction.cu; sourceTree = "<group>"; };
 		106F8B75125B5B8500DD0860 /* home_junk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = home_junk; sourceTree = "<group>"; };
@@ -71,6 +72,7 @@
 				10EA46DF127718F8001A6514 /* notes */,
 				106F8B75125B5B8500DD0860 /* home_junk */,
 				106F8B77125B5B9E00DD0860 /* res_junk */,
+				1066300C127AF93B0044E2E2 /* pole debug GPU vs CPU sharing output */,
 				10294D9B11A1B93300AAF551 /* source */,
 				10294D9C11A1B93D00AAF551 /* other */,
 			);

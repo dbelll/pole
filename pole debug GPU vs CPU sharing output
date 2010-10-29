@@ -1,0 +1,48 @@
+[POLE][TRIALS     16][TIME_STEPS     64][SHARING_INTERVAL      4][AGENT_GROUP_SIZE      8][ALPHA 0.0500][EPSILON 0.0000][GAMMA 0.9000][LAMBDA 0.7000][TEST_INTERVAL      4][TEST_REPS  16384][RESTART_INTERVAL      4][DIVS  3  2  3  2][CHUNK_INTERVAL      4][INIT_SHARING_WGT 0.5000][INIT_THETA_MIN-0.1000][INIT_THETA_MAX 0.1000]
+----------------|
+................
+     462.784 ms for run on CPU
+CPU: 
+    TEST  Avg Episode
+   [   0]      764
+   [   1]      627
+   [   2]      874
+   [   3]      614
+   [   4]      760
+   [   5]      508
+   [   6]      525
+   [   7]      738
+   [   8]      745
+   [   9]      630
+   [  10]      623
+   [  11]      506
+   [  12]      751
+   [  13]      635
+   [  14]      511
+   [  15]      890
+----------------|
+................
+     423.748 ms for total GPU time
+       0.220 ms for pole_clear_trace_kernel
+       7.875 ms for pole_learn_kernel
+       0.593 ms for pole_share_kernel
+     382.636 ms for pole_test_kernel
+       1.406 ms for pole_reduce_kernel
+GPU: 
+    TEST  Avg Episode
+   [   0]      763
+   [   1]      627
+   [   2]      874
+   [   3]      614
+   [   4]      760
+   [   5]      508
+   [   6]      525
+   [   7]      738
+   [   8]      745
+   [   9]      630
+   [  10]      623
+   [  11]      506
+   [  12]      751
+   [  13]      635
+   [  14]      511
+   [  15]      890
