@@ -4,7 +4,7 @@
 #
 #
 
-_trials="--TRIALS=256"
+_trials="--TRIALS=$1"
 
 _run="--RUN_ON_CPU=0 --RUN_ON_GPU=1"
 _location="./bin/linux/release"
