@@ -30,15 +30,15 @@ _parms="--ALPHA=$_a --EPSILON=$_e --GAMMA=$_g --LAMBDA=$_l"
 _trials="--TRIALS=1"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
 
-$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=4096 --TEST_INTERVAL=4096
 
-$_location/pole $_common --AGENT_GROUP_SIZE=512 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=512 --TIME_STEPS=4096 --TEST_INTERVAL=4096
 
-$_location/pole $_common --AGENT_GROUP_SIZE=1024 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=1024 --TIME_STEPS=4096 --TEST_INTERVAL=4096
 
-$_location/pole $_common --AGENT_GROUP_SIZE=2048 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=2048 --TIME_STEPS=4096 --TEST_INTERVAL=4096
 
-$_location/pole $_common --AGENT_GROUP_SIZE=4096 --TIME_STEPS=4096 --TEST_INTERVAL=64
+$_location/pole $_common --AGENT_GROUP_SIZE=4096 --TIME_STEPS=4096 --TEST_INTERVAL=4096
 
 #$_location/pole $_common --AGENT_GROUP_SIZE=8192 --TIME_STEPS=4096 --TEST_INTERVAL=128
 
@@ -48,15 +48,15 @@ $_location/pole $_common --AGENT_GROUP_SIZE=4096 --TIME_STEPS=4096 --TEST_INTERV
 _trials="--TRIALS=$1"
 _common="$_trials $_run $_grpsize $_restart $_test $_sharing $_parms $_wgtinfo"
 
-$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=4096 --TEST_INTERVAL=64
+#$_location/pole $_common --AGENT_GROUP_SIZE=256 --TIME_STEPS=4096 --TEST_INTERVAL=64
 
-$_location/pole $_common --AGENT_GROUP_SIZE=512 --TIME_STEPS=4096 --TEST_INTERVAL=64
+#$_location/pole $_common --AGENT_GROUP_SIZE=512 --TIME_STEPS=4096 --TEST_INTERVAL=64
 
-$_location/pole $_common --AGENT_GROUP_SIZE=1024 --TIME_STEPS=4096 --TEST_INTERVAL=64
+#$_location/pole $_common --AGENT_GROUP_SIZE=1024 --TIME_STEPS=4096 --TEST_INTERVAL=64
 
-$_location/pole $_common --AGENT_GROUP_SIZE=2048 --TIME_STEPS=4096 --TEST_INTERVAL=64
+#$_location/pole $_common --AGENT_GROUP_SIZE=2048 --TIME_STEPS=4096 --TEST_INTERVAL=64
 
-$_location/pole $_common --AGENT_GROUP_SIZE=4096 --TIME_STEPS=4096 --TEST_INTERVAL=64
+#$_location/pole $_common --AGENT_GROUP_SIZE=4096 --TIME_STEPS=4096 --TEST_INTERVAL=64
 
 #$_location/pole $_common --AGENT_GROUP_SIZE=8192 --TIME_STEPS=4096 --TEST_INTERVAL=128
 
