@@ -1,4 +1,6 @@
-share	main branch, latest tested version of the code is here
+master	master branch for merging successful development from other branches
+
+share	main development branch for sharing strategy and testing
 
 differ	experimental branch for trying differentiation strategies
 

@@ -38,6 +38,8 @@
 #define NUM_STATE_VALUES 4
 #define NUM_ACTIONS 2
 
+#define THETA_BIAS_REDUCTION_FACTOR 0.5f
+
 // various constants
 #define GRAV -9.81f			// gravitational acceleration in meters per second squared
 #define CART_MASS 1.0f		// mass of cart in kilograms
@@ -105,8 +107,10 @@ typedef struct {
 	unsigned num_chunks;		// calculated = time_steps / chunk_interval
 
 	unsigned chunks_per_restart;	// calculated = restart_interval / chunk_interval
-	unsigned chunks_per_share;		// calculated = sharing_interval / chunk_interval
-	unsigned chunks_per_test;		// calculated = test_interval / chunk_interval
+	unsigned chunks_per_share;	// calculated = sharing_interval / chunk_interval
+	unsigned chunks_per_test;	// calculated = test_interval / chunk_interval
+	
+	float theta_bias_max;		// maximum bias amount for individual theta bias
 	
 } PARAMS;
 
@@ -118,6 +122,7 @@ typedef struct{
 	unsigned device_flag;	// 1 => these are device pointers, 0 => host pointers
 	unsigned *seeds;	// seeds for random number generator
 	float *theta;		// weights for each of the features / actions
+	float *theta_bias;	// a bias amount calculated for each agent/feature/action.
 	float *e;			// eligibility trace (num_features * num_actions for each agent)
 	float *wgt;			// sum of the weights (alpha * e) used to update each theta value
 	float *ep_data;		// state, action, result, state, action values for this action episode

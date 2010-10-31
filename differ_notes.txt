@@ -1,0 +1,9 @@
+Differentiation Notes
+
+1. Give each agent a bias amount for every feature/action.  The bias will be added to that agent's theta value when determining the best action.
+	a. Allocate and create the array of bias values when creating the agents
+	b The amount of possible bias will be calculated based on THETA_BIAS_MAX parameter and stored in _p.theta_bias_max
+	
+	Bias is only important if it exceeds the difference between theta values for two actions in one state.  
+	
+2. Have the bias reduce over time
